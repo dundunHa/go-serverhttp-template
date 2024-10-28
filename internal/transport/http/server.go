@@ -32,7 +32,7 @@ func (s *Server) Handler() http.Handler {
 	return s.mux
 }
 
-// Router 返回 chi.Router，用于挂载更多路由或 Swagger
+// Router 返回 chi.Router，用于挂载更多路由
 func (s *Server) Router() chi.Router {
 	return s.mux
 }

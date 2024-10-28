@@ -21,13 +21,6 @@ func (f *fakeRT) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // TestGmailProvider_VerifyToken 覆盖 GmailProvider.VerifyToken 的各种场景
 func TestGmailProvider_VerifyToken(t *testing.T) {
-	// 构造一个 provider 并手动设置 clientID
-	p := &GmailProvider{clientID: "client123"}
-
-	// 在测试结束后恢复 DefaultClient
-	orig := http.DefaultClient
-	t.Cleanup(func() { http.DefaultClient = orig })
-
 	tests := []struct {
 		name      string
 		rt        *fakeRT
@@ -64,9 +57,11 @@ func TestGmailProvider_VerifyToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 在 DefaultClient 上安装我们的 fake RoundTripper
+			var p *GmailProvider
 			if tt.rt != nil {
-				http.DefaultClient = &http.Client{Transport: tt.rt}
+				p = NewGmailProviderWithClient("client123", &http.Client{Transport: tt.rt})
+			} else {
+				p = NewGmailProviderWithClient("client123", nil)
 			}
 			ui, err := p.VerifyToken(context.Background(), tt.token)
 			if tt.wantErr != nil {
@@ -96,11 +91,8 @@ func TestGmailProvider_VerifyToken_Success(t *testing.T) {
 	}
 	rt := &fakeRT{resp: resp, err: nil}
 
-	// 2. 构造 provider 并替换 DefaultClient
-	p := &GmailProvider{clientID: "gmail-success"}
-	orig := http.DefaultClient
-	http.DefaultClient = &http.Client{Transport: rt}
-	t.Cleanup(func() { http.DefaultClient = orig })
+	// 2. 构造 provider 并注入 client
+	p := NewGmailProviderWithClient("gmail-success", &http.Client{Transport: rt})
 
 	// 3. 调用 VerifyToken 并断言
 	ui, err := p.VerifyToken(context.Background(), "any-token")

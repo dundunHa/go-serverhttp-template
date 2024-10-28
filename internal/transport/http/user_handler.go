@@ -1,11 +1,13 @@
 package httpserver
 
 import (
+	"context"
+	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
+	"go-serverhttp-template/internal/dao"
 	"go-serverhttp-template/internal/service"
 )
 
@@ -18,17 +20,17 @@ func NewUserHandler(s service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) Register(r chi.Router) {
-	r.Get("/{id}", h.Get)
-}
-
-func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
-	u, err := h.svc.GetUser(id)
-	if err != nil {
-		WriteJSON(w, http.StatusNotFound, map[string]interface{}{
-			"error": err.Error(),
-		})
-		return
+	type getReq struct {
+		ID int `uri:"id" validate:"required"`
 	}
-	WriteJSON(w, http.StatusOK, u)
+	r.Get("/{id}", Adapter(func(ctx context.Context, req getReq) (*dao.User, *APIError) {
+		u, err := h.svc.GetUser(req.ID)
+		if err != nil {
+			if errors.Is(err, service.ErrUserNotFound) {
+				return nil, &APIError{Code: http.StatusNotFound, Message: "user not found"}
+			}
+			return nil, &APIError{Code: http.StatusInternalServerError, Message: "internal server error"}
+		}
+		return u, nil
+	}))
 }

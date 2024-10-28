@@ -13,5 +13,9 @@ func WriteSuccess(w http.ResponseWriter, data interface{}) {
 }
 
 func WriteError(w http.ResponseWriter, err *APIError) {
-	WriteJSON(w, http.StatusOK, err)
+	status := http.StatusInternalServerError
+	if err != nil && err.Code >= 400 && err.Code < 600 {
+		status = err.Code
+	}
+	WriteJSON(w, status, err)
 }

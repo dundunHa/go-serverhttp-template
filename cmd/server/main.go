@@ -4,27 +4,31 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
-	"go-serverhttp-template/internal/comfyui"
 	"go-serverhttp-template/internal/config"
 	"go-serverhttp-template/internal/dao"
 	"go-serverhttp-template/internal/router"
 	"go-serverhttp-template/internal/service"
 	"go-serverhttp-template/internal/service/auth"
 	"go-serverhttp-template/internal/storage"
+	grpcserver "go-serverhttp-template/internal/transport/grpc"
 	httpserver "go-serverhttp-template/internal/transport/http"
 	"go-serverhttp-template/internal/transport/http/middleware"
 	"go-serverhttp-template/pkg/cache"
 	logpkg "go-serverhttp-template/pkg/log"
 )
+
+type stopFunc func(context.Context) error
 
 func main() {
 	conf, err := config.LoadConfig()
@@ -33,37 +37,77 @@ func main() {
 	}
 
 	initLogger(conf.Log)
+	logStartupWarnings(conf.Warnings())
 	initCache(conf.Cache)
 
-	db, err := storage.InitDB()
-	if err != nil {
-		log.Fatal().Err(err).Msg("init db failed")
+	var userHandler *httpserver.UserHandler
+	db := initDBIfConfigured(conf.DB)
+	if db != nil {
+		userDAO := initUserDAO(db)
+		userSvc := initUserService(userDAO)
+		userHandler = initUserHandler(userSvc)
 	}
-	userDAO := initUserDAO(db)
-	userSvc := initUserService(userDAO)
-	mgr := auth.NewProviderManager()
-	mgr.Register("gmail", auth.NewGmailProvider())
-	mgr.Register("apple", auth.NewAppleProvider(conf.Auth.Apple))
-	mgr.Register("guest", auth.NewGuestProvider())
-	authSvc := auth.NewAuthService(mgr, nil)
-	authHandler := httpserver.NewAuthHandler(authSvc)
-	userHandler := initUserHandler(userSvc)
 
-	// 初始化 ComfyUI 客户端
-	comfyUIClient := comfyui.NewClient(conf.ComfyUI)
-	comfyUIHandler := httpserver.NewComfyUIHandler(comfyUIClient)
+	authHandler := initAuthHandler(conf)
 
-	srv := newHTTPServer(conf.Server.Port, userHandler, authHandler, comfyUIHandler)
-	startServer(srv)
+	serverStops := make([]stopFunc, 0, 2)
+	resourceStops := make([]stopFunc, 0, 2)
 
-	waitForShutdown(srv, 10*time.Second)
+	resourceStops = append(resourceStops, func(ctx context.Context) error {
+		_ = ctx
+		return cache.Close()
+	})
+	if db != nil {
+		resourceStops = append(resourceStops, func(ctx context.Context) error {
+			_ = ctx
+			return db.Close()
+		})
+	}
+
+	switch conf.Mode {
+	case config.ModeHTTP:
+		srv := newHTTPServer(conf.HTTP.Port, conf.HTTP.LogBody, userHandler, authHandler)
+		startHTTPServer(srv)
+		serverStops = append(serverStops, srv.Shutdown)
+	case config.ModeGRPC:
+		stop, err := startGRPCServer(conf.GRPC.Port)
+		if err != nil {
+			log.Fatal().Err(err).Msg("start grpc server failed")
+		}
+		serverStops = append(serverStops, stop)
+	case config.ModeBoth:
+		srv := newHTTPServer(conf.HTTP.Port, conf.HTTP.LogBody, userHandler, authHandler)
+		startHTTPServer(srv)
+		serverStops = append(serverStops, srv.Shutdown)
+
+		stop, err := startGRPCServer(conf.GRPC.Port)
+		if err != nil {
+			log.Fatal().Err(err).Msg("start grpc server failed")
+		}
+		serverStops = append(serverStops, stop)
+	default:
+		log.Fatal().Str("mode", string(conf.Mode)).Msg("invalid mode; expected http|grpc|both")
+	}
+
+	waitForShutdown(10*time.Second, serverStops, resourceStops)
 }
 
 func initLogger(cfg logpkg.Config) {
 	logpkg.InitLogger(cfg)
 	log.Info().Msg("Logger initialized")
 }
+
+func logStartupWarnings(warns []string) {
+	for _, w := range warns {
+		log.Warn().Msg(w)
+	}
+}
+
 func initCache(cfg config.CacheConfig) {
+	if len(cfg.Addrs) == 0 {
+		log.Warn().Msg("cache disabled: missing cache.addrs")
+		return
+	}
 	cacheCfg := cache.Config{
 		Addrs:        cfg.Addrs,
 		Password:     cfg.Password,
@@ -90,19 +134,18 @@ func initUserHandler(userSvc service.UserService) *httpserver.UserHandler {
 }
 
 // 构建一个带中间件和路由的 HTTP Server
-func newHTTPServer(port int, userHandler *httpserver.UserHandler, authHandler *httpserver.AuthHandler, comfyUIHandler *httpserver.ComfyUIHandler) *http.Server {
+func newHTTPServer(port int, logBody bool, userHandler *httpserver.UserHandler, authHandler *httpserver.AuthHandler) *http.Server {
 	svc := httpserver.NewServer()
+	baseLogger := log.Logger.With().Str("module", "http").Logger()
 	svc.Use(
-		middleware.Recovery,
 		middleware.CORS(),
 		middleware.ErrorHandler,
+		middleware.InjectRootLogger(&baseLogger),
+		middleware.LoggingMiddleware("http", logBody),
 	)
-
-	baseLogger := log.Logger.With().Str("module", "http").Logger()
 	svc.WithRoutes(func(r chi.Router) {
-		router.Register(r, &baseLogger, userHandler, authHandler, comfyUIHandler)
+		router.Register(r, userHandler, authHandler)
 	})
-	httpserver.MountSwagger(svc.Router())
 
 	addr := fmt.Sprintf(":%d", port)
 	return &http.Server{
@@ -115,7 +158,7 @@ func newHTTPServer(port int, userHandler *httpserver.UserHandler, authHandler *h
 }
 
 // 并发启动 HTTP 服务
-func startServer(srv *http.Server) {
+func startHTTPServer(srv *http.Server) {
 	go func() {
 		log.Info().Str("addr", srv.Addr).Msg("Starting HTTP server")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -125,7 +168,7 @@ func startServer(srv *http.Server) {
 }
 
 // 捕捉 SIGINT/SIGTERM 并优雅关机
-func waitForShutdown(srv *http.Server, timeout time.Duration) {
+func waitForShutdown(timeout time.Duration, serverStops, resourceStops []stopFunc) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -134,10 +177,94 @@ func waitForShutdown(srv *http.Server, timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	srv.SetKeepAlivesEnabled(false)
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Msg("Graceful shutdown failed")
-	} else {
-		log.Info().Msg("Server gracefully stopped")
+	shutdown(ctx, serverStops, resourceStops)
+	log.Info().Msg("Shutdown completed")
+}
+
+func shutdown(ctx context.Context, serverStops, resourceStops []stopFunc) {
+	log.Info().Msg("Stopping servers")
+	runStops(ctx, serverStops)
+	log.Info().Msg("Closing resources")
+	runStops(ctx, resourceStops)
+}
+
+func runStops(ctx context.Context, stops []stopFunc) {
+	var wg sync.WaitGroup
+	for _, stop := range stops {
+		if stop == nil {
+			continue
+		}
+		wg.Add(1)
+		go func(s stopFunc) {
+			defer wg.Done()
+			if err := s(ctx); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+				log.Error().Err(err).Msg("shutdown hook failed")
+			}
+		}(stop)
 	}
+	wg.Wait()
+}
+
+func initDBIfConfigured(cfg config.DBConfig) *sql.DB {
+	if cfg.DSN == "" {
+		return nil
+	}
+	db, err := storage.InitDB(cfg.DSN, storage.Options{
+		MaxOpenConns:    cfg.MaxOpenConns,
+		MaxIdleConns:    cfg.MaxIdleConns,
+		ConnMaxLifetime: cfg.ConnMaxLifetime,
+		ConnMaxIdleTime: cfg.ConnMaxIdleTime,
+	})
+	if err != nil {
+		log.Warn().Err(err).Msg("init db failed; disabling db-dependent routes")
+		return nil
+	}
+	return db
+}
+
+func initAuthHandler(conf *config.Config) *httpserver.AuthHandler {
+	mgr := auth.NewProviderManager()
+	mgr.Register("guest", auth.NewGuestProvider())
+	if conf.Auth.Gmail.ClientID != "" {
+		mgr.Register("gmail", auth.NewGmailProvider(conf.Auth.Gmail.ClientID))
+	}
+	if conf.Auth.Apple.ClientID != "" {
+		mgr.Register("apple", auth.NewAppleProvider(conf.Auth.Apple))
+	}
+	authSvc := auth.NewAuthService(mgr, nil)
+	return httpserver.NewAuthHandler(authSvc)
+}
+
+func startGRPCServer(port int) (func(context.Context) error, error) {
+	addr := fmt.Sprintf(":%d", port)
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	baseLogger := log.Logger.With().Str("module", "grpc").Logger()
+	srv := grpcserver.NewServer(&baseLogger)
+	grpcserver.RegisterServices(srv, grpcserver.Deps{Logger: &baseLogger})
+
+	go func() {
+		log.Info().Str("addr", addr).Msg("Starting gRPC server")
+		if err := srv.Serve(lis); err != nil {
+			log.Error().Err(err).Msg("gRPC server stopped with error")
+		}
+	}()
+
+	return func(ctx context.Context) error {
+		ch := make(chan struct{})
+		go func() {
+			srv.GracefulStop()
+			close(ch)
+		}()
+
+		select {
+		case <-ch:
+		case <-ctx.Done():
+			srv.Stop()
+		}
+		return lis.Close()
+	}, nil
 }

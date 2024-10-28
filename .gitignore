@@ -4,7 +4,8 @@ userinfo*
 data
 target
 bin/rtb_ui
-./log
+log/
+logs/
 *pyc
 .idea/*
 *.exe
@@ -16,4 +17,5 @@ all.sh
 *sandbox*
 main
 .vscode/*
-
+.gocache/
+.gomodcache/

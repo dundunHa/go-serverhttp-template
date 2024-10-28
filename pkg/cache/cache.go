@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -16,6 +17,8 @@ type Cache struct {
 
 // Default 全局默认实例，Init 后可直接使用下面的函数
 var Default *Cache
+
+var ErrNotInitialized = errors.New("cache not initialized")
 
 // Init 用配置初始化 Default
 func Init(cfg Config) {
@@ -32,8 +35,18 @@ func Init(cfg Config) {
 	Default = &Cache{client: cli}
 }
 
+func Close() error {
+	if Default == nil {
+		return nil
+	}
+	return Default.client.Close()
+}
+
 // Set 将任意对象 JSON 编码后存入
 func Set(ctx context.Context, key string, val interface{}, ttl time.Duration) error {
+	if Default == nil {
+		return ErrNotInitialized
+	}
 	buf, err := json.Marshal(val)
 	if err != nil {
 		return err
@@ -44,6 +57,9 @@ func Set(ctx context.Context, key string, val interface{}, ttl time.Duration) er
 // Get[T] 从缓存取出并 JSON 解码到 T
 func Get[T any](ctx context.Context, key string) (T, error) {
 	var zero T
+	if Default == nil {
+		return zero, ErrNotInitialized
+	}
 	buf, err := Default.client.Get(key).Bytes()
 	if err != nil {
 		return zero, err
@@ -56,5 +72,8 @@ func Get[T any](ctx context.Context, key string) (T, error) {
 
 // Del 删除 key
 func Del(ctx context.Context, key string) error {
+	if Default == nil {
+		return ErrNotInitialized
+	}
 	return Default.client.Del(key).Err()
 }

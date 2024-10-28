@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"encoding/json"
 	"net/http"
 	"runtime/debug"
 
@@ -11,30 +10,13 @@ import (
 	httpserver "go-serverhttp-template/internal/transport/http"
 )
 
-// Recovery 中间件，捕获 panic
-func Recovery(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Error().Interface("panic", err).Bytes("stack", debug.Stack()).Msg("panic recovered")
-				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
-					"code":    500,
-					"message": "internal server error",
-				})
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
-}
-
 // CORS 中间件，允许所有来源（可根据需要调整）
 func CORS() func(http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 	})
 }
 

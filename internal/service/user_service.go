@@ -1,6 +1,13 @@
 package service
 
-import "go-serverhttp-template/internal/dao"
+import (
+	"database/sql"
+	"errors"
+
+	"go-serverhttp-template/internal/dao"
+)
+
+var ErrUserNotFound = errors.New("user not found")
 
 type UserService interface {
 	GetUser(id int) (*dao.User, error)
@@ -15,5 +22,9 @@ func NewUserService(d dao.UserDAO) UserService {
 }
 
 func (s *userService) GetUser(id int) (*dao.User, error) {
-	return s.dao.FindByID(id)
+	u, err := s.dao.FindByID(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
+	return u, err
 }

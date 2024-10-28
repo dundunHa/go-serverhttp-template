@@ -3,19 +3,26 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"os"
+	"time"
 )
 
 // GmailProvider 实现 AuthProvider
 type GmailProvider struct {
 	clientID string
+	client   *http.Client
 }
 
-func NewGmailProvider() *GmailProvider {
-	return &GmailProvider{
-		clientID: os.Getenv("GMAIL_CLIENT_ID"),
+func NewGmailProvider(clientID string) *GmailProvider {
+	return NewGmailProviderWithClient(clientID, &http.Client{Timeout: 5 * time.Second})
+}
+
+func NewGmailProviderWithClient(clientID string, client *http.Client) *GmailProvider {
+	if client == nil {
+		client = &http.Client{Timeout: 5 * time.Second}
 	}
+	return &GmailProvider{clientID: clientID, client: client}
 }
 
 // VerifyToken 校验 Google ID Token
@@ -25,7 +32,11 @@ func (p *GmailProvider) VerifyToken(ctx context.Context, token string) (*UserInf
 	}
 	// 调用 Google tokeninfo API
 	url := "https://oauth2.googleapis.com/tokeninfo?id_token=" + token
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	resp, err := p.client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		return nil, ErrAuthFailed
 	}

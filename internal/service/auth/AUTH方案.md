@@ -15,10 +15,13 @@ internal/service/auth/
 ```
 
 ## 3. 配置管理
-- 通过环境变量读取各 provider 的 client_id：
+- 配置优先级：环境变量（推荐，统一前缀 `APP_`）> TOML 配置文件。
+- 推荐环境变量：
+  - `APP_AUTH_GMAIL_CLIENT_ID`
+  - `APP_AUTH_APPLE_CLIENT_ID`
+- 兼容旧环境变量（会在启动期 warning）：
   - `GMAIL_CLIENT_ID`
-  - `APPLE_CLIENT_ID`
-- 不引入额外依赖，仅用 `os.Getenv`。
+  - `SERVER_AUTH_APPLE_CLIENT_ID`
 
 ## 4. 核心接口
 - `AuthProvider`：统一认证接口，`VerifyToken(ctx, token) (*UserInfo, error)`

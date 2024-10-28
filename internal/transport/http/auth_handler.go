@@ -1,7 +1,8 @@
 package httpserver
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -18,24 +19,21 @@ func NewAuthHandler(svc *auth.AuthService) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(r chi.Router) {
-	r.Post("/auth/{provider}", h.Auth)
-}
-
-func (h *AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
-	provider := chi.URLParam(r, "provider")
-	var req AuthRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteJSON(w, http.StatusBadRequest, AuthResponse{Code: 400, Message: "invalid request"})
-		return
+	type authReq struct {
+		Provider string `uri:"provider" json:"-" validate:"required"`
+		Token    string `json:"token" validate:"required"`
 	}
-	if req.Token == "" {
-		WriteJSON(w, http.StatusBadRequest, AuthResponse{Code: 400, Message: "token required"})
-		return
-	}
-	user, err := h.Svc.Verify(r.Context(), provider, req.Token)
-	if err != nil {
-		WriteJSON(w, http.StatusUnauthorized, AuthResponse{Code: 401, Message: err.Error()})
-		return
-	}
-	WriteJSON(w, http.StatusOK, AuthResponse{Code: 0, Message: "ok", Data: user})
+	r.Post("/{provider}", Adapter(func(ctx context.Context, req authReq) (*auth.UserInfo, *APIError) {
+		user, err := h.Svc.Verify(ctx, req.Provider, req.Token)
+		if err != nil {
+			if errors.Is(err, auth.ErrProviderNotFound) {
+				return nil, &APIError{Code: http.StatusNotFound, Message: "provider not found"}
+			}
+			if errors.Is(err, auth.ErrInvalidToken) || errors.Is(err, auth.ErrAuthFailed) {
+				return nil, &APIError{Code: http.StatusUnauthorized, Message: "unauthorized"}
+			}
+			return nil, &APIError{Code: http.StatusInternalServerError, Message: "internal server error"}
+		}
+		return user, nil
+	}))
 }

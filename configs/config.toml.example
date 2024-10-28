@@ -1,0 +1,47 @@
+# 说明：
+# - 环境变量优先，其次读取此 TOML（默认路径 configs/config.toml）
+# - 默认 env 前缀为 APP_；可通过 CONFIG_PREFIX 自定义，置空代表无前缀
+# - time.Duration 字段使用 Go 风格字符串，例如 "500ms" / "1h"
+
+mode = "http" # http | grpc | both
+
+[http]
+port = 8080
+log_body = false
+
+[grpc]
+port = 9090
+
+[db]
+# Postgres DSN；未设置会禁用依赖 DB 的路由（启动时 warning）
+dsn = ""
+max_open_conns = 10
+max_idle_conns = 5
+conn_max_lifetime = "30m"
+conn_max_idle_time = "5m"
+
+[log]
+environment = "development"
+level = "debug"
+path = "./logs"
+app_name = "go-serverhttp-template"
+app_version = "0.0.1"
+
+[cache]
+addrs = ["localhost:6379"]
+password = ""
+db = 0
+pool_size = 10
+dial_timeout = "5s"
+read_timeout = "3s"
+write_timeout = "3s"
+
+[auth.apple]
+# 未设置会禁用 apple provider（启动时 warning）
+client_id = ""
+jwks_url = "https://appleid.apple.com/auth/keys"
+refresh_interval = "1h"
+
+[auth.gmail]
+# 未设置会禁用 gmail provider（启动时 warning）
+client_id = ""

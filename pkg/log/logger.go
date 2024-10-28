@@ -14,11 +14,11 @@ import (
 
 // Config 定义日志系统所需配置
 type Config struct {
-	Environment string `envconfig:"ENVIRONMENT" default:"development"`         // 环境: production 或 development
-	LogLevel    string `envconfig:"LEVEL" default:"debug"`                     // 日志级别: trace/debug/info/warn/error/fatal/panic
-	LogPath     string `envconfig:"PATH" default:"./logs"`                     // 日志输出目录
-	AppName     string `envconfig:"APP_NAME" default:"go-serverhttp-template"` // 应用名称
-	AppVersion  string `envconfig:"APP_VERSION" default:"0.0.1"`               // 应用版本
+	Environment string `toml:"environment" envconfig:"ENVIRONMENT" default:"development"`      // 环境: production 或 development
+	LogLevel    string `toml:"level" envconfig:"LEVEL" default:"debug"`                        // 日志级别: trace/debug/info/warn/error/fatal/panic
+	LogPath     string `toml:"path" envconfig:"PATH" default:"./logs"`                         // 日志输出目录
+	AppName     string `toml:"app_name" envconfig:"APP_NAME" default:"go-serverhttp-template"` // 应用名称
+	AppVersion  string `toml:"app_version" envconfig:"APP_VERSION" default:"0.0.1"`            // 应用版本
 }
 
 // ProcessInfoHook 在每条日志中添加进程 ID 和 goroutine 数量
