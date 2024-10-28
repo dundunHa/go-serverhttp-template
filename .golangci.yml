@@ -1,0 +1,51 @@
+run:
+  # 超过此时间限制的 linter 将被杀死，单位是秒
+  timeout: 600s
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - asasalint
+    - bodyclose
+    - dupl
+    - makezero
+    - loggercheck
+    - gofmt
+    - goimports
+    - gci
+  presets:
+    - bugs
+    - performance
+  disable:
+    - unused
+    - staticcheck
+    - cyclop
+    - gosec
+    - gosmopolitan
+    - errorlint
+    - noctx
+    - contextcheck
+    - funlen
+    - exhaustive
+
+linters-settings:
+  gci:
+    sections:
+      - standard # Standard section: captures all standard packages.
+      - default # Default section: contains all imports that could not be matched to another section type.
+      - prefix(github.com/org/project) # Custom section: groups all imports with the specified Prefix.
+      - blank # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
+      - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
+      - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
+      - localmodule # Local module section: contains all local packages. This section is not present unless explicitly enabled.
+    skip-generated: true
+    custom-order: false
+    no-lex-order: false
+
+issues:
+  exclude-rules:
+    - path: _test\.go$
+      linters:
+        - errcheck   # 对测试文件禁用 errcheck
