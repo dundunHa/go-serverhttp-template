@@ -18,10 +18,6 @@ func Register(r *chi.Mux) {
 	r.Route("/", func(g chi.Router) {
 		g.Use(BasicAuth)
 
-		// g.Get("/status", api.History.Get)
-	})
-
-	r.Route("/internal", func(g chi.Router) {
-		g.Use(BasicAuth)
+		g.Get("/status", GetHello)
 	})
 }

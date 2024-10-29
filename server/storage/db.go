@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"log"
 
 	"gorm.io/driver/postgres"
@@ -14,10 +13,8 @@ var DB *gorm.DB
 
 func InitDB() error {
 	conf := config.LoadConfig()
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		conf.MysqlConfig.Host, conf.MysqlConfig.Port, conf.MysqlConfig, conf.MysqlConfig.Password, conf.MysqlConfig.DBName)
 	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	DB, err = gorm.Open(postgres.Open(conf.DB.Mysql.Addr), &gorm.Config{})
 	if err != nil {
 		return err
 	}
