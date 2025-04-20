@@ -34,15 +34,15 @@ jobs:
       - name: 构建Docker镜像
         run: docker build -t ${{ github.repository }}:latest .
 
-      # - name: 登录Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: 登录Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # - name: 推送镜像到Docker Hub
-      #   run: |
-      #     IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/go-serverhttp-template:latest
-      #     docker tag ${{ github.repository }}:latest $IMAGE_NAME
-      #     docker push $IMAGE_NAME
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main' 
+      - name: 推送镜像到Docker Hub
+        run: |
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/go-serverhttp-template:latest
+          docker tag ${{ github.repository }}:latest $IMAGE_NAME
+          docker push $IMAGE_NAME
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' 
