@@ -4,7 +4,7 @@ userinfo*
 data
 target
 bin/rtb_ui
-log
+./log
 *pyc
 .idea/*
 *.exe
