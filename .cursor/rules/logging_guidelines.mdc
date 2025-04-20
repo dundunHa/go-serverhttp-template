@@ -1,0 +1,50 @@
+---
+description: 日志技术文档
+globs: 
+alwaysApply: false
+---
+# 日志设计规范
+
+## 一、上下文获取
+- 在 HTTP 处理器边界（Handler/ServeHTTP）第一行获取 logger：
+  ```go
+  logger := zerolog.Ctx(r.Context())
+  ```
+- 可通过中间件统一添加全局公共字段（如 trace_id、user_id）
+
+## 二、依赖注入
+- 避免在业务内部直接调用全局 `log` 或重复使用 `zerolog.Ctx`，统一将 `*zerolog.Logger` 注入到函数参数或结构体字段中
+- 示例（Hello API）：
+  ```go
+  // NewHelloHandler 接收已配置好的 logger
+  func NewHelloHandler(logger *zerolog.Logger) http.HandlerFunc {
+      return func(w http.ResponseWriter, r *http.Request) {
+          // 使用注入的 logger 记录业务日志
+          logger.Info().Msg("Hello, World!")
+          w.WriteHeader(http.StatusOK)
+          w.Write([]byte("Hello, World!"))
+      }
+  }
+
+  // 路由初始化时注入上下文 logger，并附加模块信息
+  func RegisterRoutes(r *chi.Mux, ctx context.Context) {
+      baseLogger := zerolog.Ctx(ctx).With().Str("module", "hello").Logger()
+      r.HandleFunc("/hello", NewHelloHandler(&baseLogger))
+  }
+  ```
+
+## 三、传播方式选择
+
+- 使用包装函数（如 `logInfo(ctx, msg, fields...)`）简化日志调用；
+- 结合依赖注入框架或结构体封装，统一管理 logger 实例。
+
+## 四、保持一致性
+- 在项目中全仓库统一选型，避免多种方式混用；
+- 定期检查代码，确保日志上下文、字段格式一致。
+
+## 五、扩展与测试
+- 在注入时追加业务字段（如 `user_id`、`order_id`），增强日志可读性；
+- 测试场景下可替换为 `zerolog.Testing` 或其他 Mock Logger，方便单元测试。
+
+---
+*文档来源于日志上下文获取与依赖注入最佳实践讨论，示例基于 zerolog.Context 管理方案。* 

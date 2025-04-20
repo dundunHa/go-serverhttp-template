@@ -36,17 +36,19 @@ func BasicAuth(next http.Handler) http.Handler {
 			userID = authInfo.UserID
 		}
 
-		err = checkUser()
+		err = checkUser(userID)
 		if err != nil {
 			Error(w, constants.ErrAuthenticationFailed)
 			return
 		}
-		// 将请求体重新放回 r.Body 中供后续使用
-		r.Body = io.NopCloser(bytes.NewBuffer(bodyByte))
+		if bodyByte != nil {
+			r.Body = io.NopCloser(bytes.NewBuffer(bodyByte))
+		}
 		next.ServeHTTP(w, r)
 	})
 }
 
-func checkUser() error {
+// TODO: 检查用户是否存在
+func checkUser(userID string) error {
 	return nil
 }

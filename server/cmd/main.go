@@ -2,22 +2,30 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"github.com/rs/zerolog/log"
 
 	"go-serverhttp-template/server/api"
 	"go-serverhttp-template/server/config"
+	logpkg "go-serverhttp-template/server/log"
 )
 
 func main() {
 	conf := config.LoadConfig()
 
+	// 初始化日志系统
+	logpkg.InitLogger(conf.Log)
+	log.Info().Msg("Logger initialized")
+
 	r := chi.NewRouter()
 	api.Register(r)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", conf.Server.Port), r); err != nil {
-		log.Println("Server failed to start:", err)
+	// 启动 HTTP 服务
+	addr := fmt.Sprintf(":%d", conf.Server.Port)
+	log.Info().Str("addr", addr).Msg("Starting HTTP server")
+	if err := http.ListenAndServe(addr, r); err != nil {
+		log.Fatal().Err(err).Msg("Server failed to start")
 	}
 }
