@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 const maxBodyLogSize = 8 * 1024
@@ -32,10 +32,12 @@ func (rc *ResponseCapture) Write(b []byte) (int, error) {
 }
 
 func LoggingMiddleware(module string) func(http.Handler) http.Handler {
-	baseLogger := log.Logger.With().Str("module", module).Logger()
-
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// 从Context获取根Logger
+			rootLogger := zerolog.Ctx(r.Context())
+			baseLogger := rootLogger.With().Str("module", module).Logger()
+
 			start := time.Now()
 
 			traceID := r.Header.Get("X-Trace-ID")

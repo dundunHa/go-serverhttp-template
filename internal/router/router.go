@@ -2,24 +2,30 @@ package router
 
 import (
 	"github.com/go-chi/chi"
-	"github.com/go-chi/cors"
 
 	"go-serverhttp-template/internal/api"
 	"go-serverhttp-template/internal/middleware"
+
+	"net/http"
+
+	"github.com/rs/zerolog"
 )
 
-func Register(r *chi.Mux) {
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: false,
-		MaxAge:           300,
-	}))
-
-	r.With(middleware.LoggingMiddleware("hello")).
-		Route("/", func(g chi.Router) {
-			// g.Use(BasicAuth)
-			g.Get("/status", api.GetHello)
+// 新增：注入根Logger的中间件
+func InjectRootLogger(root *zerolog.Logger) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := root.WithContext(r.Context())
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+func Register(r *chi.Mux, logger *zerolog.Logger) {
+	r.Use(InjectRootLogger(logger))
+
+	r.Route("/hello", func(g chi.Router) {
+		g.Use(middleware.LoggingMiddleware("hello"))
+		g.Get("/", api.GetHelloHandler())
+	})
 }

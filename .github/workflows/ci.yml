@@ -1,48 +1,48 @@
-name: CI/CD
+# name: CI/CD
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+# on:
+#   push:
+#     branches: [main]
+#   pull_request:
+#     branches: [main]
 
-jobs:
-  build-docker:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+# jobs:
+#   build-docker:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: 检出代码
+#         uses: actions/checkout@v4
 
-      - name: 设置Go环境
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.2'
+#       - name: 设置Go环境
+#         uses: actions/setup-go@v5
+#         with:
+#           go-version: '1.24.2'
 
-      - name: 缓存Go模块
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+#       - name: 缓存Go模块
+#         uses: actions/cache@v4
+#         with:
+#           path: |
+#             ~/.cache/go-build
+#             ~/go/pkg/mod
+#           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+#           restore-keys: |
+#             ${{ runner.os }}-go-
 
-      # - name: 运行单元测试
-      #   run: go test ./...
+#       # - name: 运行单元测试
+#       #   run: go test ./...
 
-      - name: 构建Docker镜像
-        run: docker build -t ${{ github.repository }}:latest .
+#       - name: 构建Docker镜像
+#         run: docker build -t ${{ github.repository }}:latest .
 
-      - name: 登录Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+#       - name: 登录Docker Hub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: 推送镜像到Docker Hub
-        run: |
-          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/go-serverhttp-template:latest
-          docker tag ${{ github.repository }}:latest $IMAGE_NAME
-          docker push $IMAGE_NAME
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' 
+#       - name: 推送镜像到Docker Hub
+#         run: |
+#           IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/go-serverhttp-template:latest
+#           docker tag ${{ github.repository }}:latest $IMAGE_NAME
+#           docker push $IMAGE_NAME
+#         if: github.event_name == 'push' && github.ref == 'refs/heads/main' 
