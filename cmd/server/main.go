@@ -9,30 +9,40 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
 	"go-serverhttp-template/internal/config"
 	"go-serverhttp-template/internal/router"
+	httpserver "go-serverhttp-template/internal/transport/http"
 	logpkg "go-serverhttp-template/pkg/log"
 )
 
 func main() {
 	conf := config.LoadConfig()
 
-	// 初始化日志系统
 	logpkg.InitLogger(conf.Log)
 	log.Info().Msg("Logger initialized")
 
-	r := chi.NewRouter()
+	srv := httpserver.NewServer()
+	srv.Use(
+		httpserver.Recovery,
+		httpserver.CORS(),
+		httpserver.ErrorHandler,
+	)
+	// 注册业务路由
 	baseLogger := log.Logger.With().Str("module", "http").Logger()
-	router.Register(r, &baseLogger)
+	srv.WithRoutes(func(r chi.Router) {
+		router.Register(r, &baseLogger)
+	})
+	// 挂载 Swagger 文档路由
+	httpserver.MountSwagger(srv.Router())
 
 	// 启动 HTTP 服务
 	addr := fmt.Sprintf(":%d", conf.Server.Port)
-	srv := &http.Server{
+	server := &http.Server{
 		Addr:         addr,
-		Handler:      r,
+		Handler:      srv.Handler(),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -40,11 +50,12 @@ func main() {
 
 	go func() {
 		log.Info().Str("addr", addr).Msg("Starting HTTP server")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal().Err(err).Msg("Server failed unexpectedly")
 		}
 	}()
 
+	// 优雅关机
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -53,9 +64,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	srv.SetKeepAlivesEnabled(false)
+	server.SetKeepAlivesEnabled(false)
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctx); err != nil {
 		log.Error().Err(err).Msg("Graceful shutdown failed")
 	} else {
 		log.Info().Msg("Server gracefully stopped")

@@ -1,4 +1,4 @@
-package middleware
+package httpserver
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -31,15 +31,27 @@ func (rc *ResponseCapture) Write(b []byte) (int, error) {
 	return rc.WrapResponseWriter.Write(b)
 }
 
+// InjectRootLogger 注入根 Logger 到上下文
+func InjectRootLogger(root *zerolog.Logger) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r = r.WithContext(root.WithContext(r.Context()))
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// LoggingMiddleware 记录请求开始与完成日志
 func LoggingMiddleware(module string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 从Context获取根Logger
+			// 从 Context 获取根 Logger
 			rootLogger := zerolog.Ctx(r.Context())
 			baseLogger := rootLogger.With().Str("module", module).Logger()
 
 			start := time.Now()
 
+			// 生成 trace_id 与 request_id
 			traceID := r.Header.Get("X-Trace-ID")
 			if traceID == "" {
 				traceID = uuid.New().String()
@@ -48,6 +60,7 @@ func LoggingMiddleware(module string) func(http.Handler) http.Handler {
 			if requestID == "" {
 				requestID = uuid.New().String()
 			}
+
 			clientIP := r.RemoteAddr
 			if ip := r.Header.Get("X-Real-IP"); ip != "" {
 				clientIP = ip
@@ -68,6 +81,7 @@ func LoggingMiddleware(module string) func(http.Handler) http.Handler {
 			uri := r.RequestURI
 			query := r.URL.Query()
 
+			// 读取请求体
 			var requestBody string
 			if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
 				bodyBytes, err := io.ReadAll(r.Body)
@@ -82,6 +96,7 @@ func LoggingMiddleware(module string) func(http.Handler) http.Handler {
 					}
 				}
 			}
+
 			logger.Info().
 				Str("phase", "start").
 				Str("method", method).

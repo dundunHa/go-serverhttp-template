@@ -1,31 +1,20 @@
 package router
 
 import (
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog"
 
 	"go-serverhttp-template/internal/api"
-	"go-serverhttp-template/internal/middleware"
-
-	"net/http"
-
-	"github.com/rs/zerolog"
+	httpserver "go-serverhttp-template/internal/transport/http"
 )
 
-// 新增：注入根Logger的中间件
-func InjectRootLogger(root *zerolog.Logger) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := root.WithContext(r.Context())
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-func Register(r *chi.Mux, logger *zerolog.Logger) {
-	r.Use(InjectRootLogger(logger))
-
+// Register 注册所有业务路由
+func Register(r chi.Router, logger *zerolog.Logger) {
+	// 注入根 Logger
+	r.Use(httpserver.InjectRootLogger(logger))
+	// Hello 模块路由示例
 	r.Route("/hello", func(g chi.Router) {
-		g.Use(middleware.LoggingMiddleware("hello"))
+		g.Use(httpserver.LoggingMiddleware("hello"))
 		g.Get("/", api.GetHelloHandler())
 	})
 }
