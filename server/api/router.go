@@ -11,10 +11,9 @@ func Register(r *chi.Mux) {
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: false,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
+		MaxAge:           300,
 	}))
 
-	// Hello 模块：注入 hello 日志与鉴权
 	r.With(LoggingMiddleware("hello")).
 		Route("/", func(g chi.Router) {
 			// g.Use(BasicAuth)
