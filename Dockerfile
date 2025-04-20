@@ -3,7 +3,8 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 COPY . .
-RUN ls -l /app/pkg/log
+RUN ls -l ./pkg/log
+RUN ls -l ./
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server ./cmd/server/main.go
 
