@@ -6,7 +6,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"go-serverhttp-template/server/config"
+	"go-serverhttp-template/internal/config"
 )
 
 var DB *gorm.DB
@@ -19,7 +19,6 @@ func InitDB() error {
 		return err
 	}
 
-	// 自动迁移数据库表
 	//if err := DB.AutoMigrate(&model.example{}); err != nil {
 	//	return err
 	//}

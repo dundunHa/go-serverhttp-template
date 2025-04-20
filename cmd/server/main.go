@@ -7,9 +7,9 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/rs/zerolog/log"
 
-	"go-serverhttp-template/server/api"
-	"go-serverhttp-template/server/config"
-	logpkg "go-serverhttp-template/server/log"
+	"go-serverhttp-template/internal/config"
+	"go-serverhttp-template/internal/router"
+	logpkg "go-serverhttp-template/pkg/log"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	log.Info().Msg("Logger initialized")
 
 	r := chi.NewRouter()
-	api.Register(r)
+	router.Register(r)
 
 	// 启动 HTTP 服务
 	addr := fmt.Sprintf(":%d", conf.Server.Port)

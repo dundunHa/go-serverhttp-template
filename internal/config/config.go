@@ -4,7 +4,7 @@ import (
 	"os"
 	"strconv"
 
-	logpkg "go-serverhttp-template/server/log"
+	logpkg "go-serverhttp-template/pkg/log"
 )
 
 type Config struct {
@@ -27,6 +27,7 @@ func LoadConfig() *Config {
 	if conf != nil {
 		return conf
 	}
+
 	dbAddr := os.Getenv("DB_ADDR")
 	portStr := os.Getenv("SERVER_PORT")
 	if portStr == "" {

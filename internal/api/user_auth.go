@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"go-serverhttp-template/server/constants"
+	"go-serverhttp-template/internal/common"
+	"go-serverhttp-template/internal/constants"
 )
 
 func BasicAuth(next http.Handler) http.Handler {
@@ -25,12 +26,12 @@ func BasicAuth(next http.Handler) http.Handler {
 			}
 			bodyByte, err = io.ReadAll(r.Body)
 			if err != nil {
-				Error(w, constants.ErrRequestFailed)
+				common.Error(w, constants.ErrRequestFailed)
 				return
 			}
 			err = json.Unmarshal(bodyByte, &authInfo)
 			if err != nil {
-				Error(w, constants.ErrParamsInvalid)
+				common.Error(w, constants.ErrParamsInvalid)
 				return
 			}
 			userID = authInfo.UserID
@@ -38,7 +39,7 @@ func BasicAuth(next http.Handler) http.Handler {
 
 		err = checkUser(userID)
 		if err != nil {
-			Error(w, constants.ErrAuthenticationFailed)
+			common.Error(w, constants.ErrAuthenticationFailed)
 			return
 		}
 		if bodyByte != nil {

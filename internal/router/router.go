@@ -1,8 +1,11 @@
-package api
+package router
 
 import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
+
+	"go-serverhttp-template/internal/api"
+	"go-serverhttp-template/internal/middleware"
 )
 
 func Register(r *chi.Mux) {
@@ -14,9 +17,9 @@ func Register(r *chi.Mux) {
 		MaxAge:           300,
 	}))
 
-	r.With(LoggingMiddleware("hello")).
+	r.With(middleware.LoggingMiddleware("hello")).
 		Route("/", func(g chi.Router) {
 			// g.Use(BasicAuth)
-			g.Get("/status", GetHello)
+			g.Get("/status", api.GetHello)
 		})
 }
