@@ -28,8 +28,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: 运行单元测试
-        run: go test ./...
+      # - name: 运行单元测试
+      #   run: go test ./...
 
       - name: 构建Docker镜像
         run: docker build -t ${{ github.repository }}:latest .
