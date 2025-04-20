@@ -51,7 +51,7 @@ func LoadConfig() *Config {
 	}
 	appName := os.Getenv("APP_NAME")
 	if appName == "" {
-		appName = "myservice"
+		appName = "go-serverhttp-template"
 	}
 	appVersion := os.Getenv("APP_VERSION")
 	if appVersion == "" {
