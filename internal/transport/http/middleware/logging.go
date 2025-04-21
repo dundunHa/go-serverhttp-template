@@ -1,4 +1,4 @@
-package httpserver
+package middleware
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5/middleware"
+	chiMw "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -15,13 +15,13 @@ import (
 const maxBodyLogSize = 8 * 1024
 
 type ResponseCapture struct {
-	middleware.WrapResponseWriter
+	chiMw.WrapResponseWriter
 	body *bytes.Buffer
 }
 
 func NewResponseCapture(w http.ResponseWriter, protoMajor int) *ResponseCapture {
 	return &ResponseCapture{
-		WrapResponseWriter: middleware.NewWrapResponseWriter(w, protoMajor),
+		WrapResponseWriter: chiMw.NewWrapResponseWriter(w, protoMajor),
 		body:               &bytes.Buffer{},
 	}
 }

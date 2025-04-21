@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func writeSuccess(w http.ResponseWriter, data interface{}) {
+func WriteSuccess(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -15,7 +15,7 @@ func writeSuccess(w http.ResponseWriter, data interface{}) {
 	})
 }
 
-func writeError(w http.ResponseWriter, err *APIError) {
+func WriteError(w http.ResponseWriter, err *APIError) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(err)

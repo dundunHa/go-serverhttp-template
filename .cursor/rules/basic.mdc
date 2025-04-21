@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 # 脚手架项目开发规范
 
 本规则文档用于约束基于本脚手架的 Go 服务项目开发，确保项目结构统一、依赖可控、代码质量高、发布流程规范。
@@ -11,27 +16,28 @@
 ```
 .
 ├── .cursor/           # 脚手架相关配置及规则
-│   └── rules.md       # 本规范文档
-├── cmd/
-│   └── <app>/         # 应用入口
+│   └── rules/         # 规则文件目录
+├── cmd/               # 应用入口
+│   └── server/        # 服务入口
 │       └── main.go
 ├── internal/          # 私有应用代码
-│   ├── transport/
+│   ├── transport/     # 传输层
 │   │   └── http/      # HTTP 服务相关
-│   │       └── ...
-│   ├── service/       # 业务逻辑
-│   ├── repository/    # 数据持久层
-│   ├── model/         # 域模型
+│   ├── storage/       # 数据持久层
+│   ├── constants/     # 常量定义
+│   ├── config/        # 配置加载
+│   ├── api/           # API 定义
+│   ├── common/        # 通用组件
+│   ├── router/        # 路由定义
 │   └── ...
 ├── pkg/               # 对外暴露的公共库
-├── configs/           # 配置文件模板
-│   └── config.yaml
-├── scripts/           # 各种脚本工具
-├── build/             # 构建输出目录
-├── go.mod
-├── go.sum
-├── Makefile           # 常用命令
-└── README.md
+├── Dockerfile         # Docker 镜像构建脚本
+├── .golangci.yml      # Lint 配置文件
+├── go.mod             # Go 模块定义
+├── go.sum             # Go 模块校验
+├── README.md          # 项目说明
+├── LICENSE            # 许可证文件
+└── .gitignore         # Git 忽略规则
 ```
 
 ## 2. 依赖管理
@@ -118,6 +124,11 @@
 
 - 分支命名：`feature/`、`fix/`、`release/`。
 - 提交信息遵循 Conventional Commits 规范。
+- PR 描述需包含变更背景、解决方案、相关 issue 链接。
+
+---
+
+持续更新与完善本规则，以适应业务和技术演进。后续对脚手架项目的开发和使用均需遵守本规范。 
 - PR 描述需包含变更背景、解决方案、相关 issue 链接。
 
 ---

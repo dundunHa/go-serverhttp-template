@@ -11,14 +11,14 @@ func Adapter[Req any, Res any](h HandlerFunc[Req, Res]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req Req
 		if apiErr := BindRequest(r, &req); apiErr != nil {
-			writeError(w, apiErr)
+			WriteError(w, apiErr)
 			return
 		}
 		res, apiErr := h(r.Context(), req)
 		if apiErr != nil {
-			writeError(w, apiErr)
+			WriteError(w, apiErr)
 			return
 		}
-		writeSuccess(w, res)
+		WriteSuccess(w, res)
 	}
 }

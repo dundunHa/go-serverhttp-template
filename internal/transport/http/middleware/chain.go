@@ -1,9 +1,11 @@
-package httpserver
+package middleware
 
 import (
 	"encoding/json"
 	"net/http"
 	"runtime/debug"
+
+	httpserver "go-serverhttp-template/internal/transport/http"
 
 	"github.com/go-chi/cors"
 	"github.com/rs/zerolog/log"
@@ -42,7 +44,7 @@ func ErrorHandler(next http.Handler) http.Handler {
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Error().Interface("panic", rec).Bytes("stack", debug.Stack()).Msg("panic recovered")
-				writeError(w, &APIError{Code: 500, Message: "内部错误"})
+				httpserver.WriteError(w, &httpserver.APIError{Code: 500, Message: "内部错误"})
 			}
 		}()
 		next.ServeHTTP(w, r)
