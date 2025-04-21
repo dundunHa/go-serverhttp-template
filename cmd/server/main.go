@@ -15,6 +15,7 @@ import (
 	"go-serverhttp-template/internal/config"
 	"go-serverhttp-template/internal/router"
 	httpserver "go-serverhttp-template/internal/transport/http"
+	"go-serverhttp-template/internal/transport/http/middleware"
 	logpkg "go-serverhttp-template/pkg/log"
 )
 
@@ -26,9 +27,9 @@ func main() {
 
 	srv := httpserver.NewServer()
 	srv.Use(
-		httpserver.Recovery,
-		httpserver.CORS(),
-		httpserver.ErrorHandler,
+		middleware.Recovery,
+		middleware.CORS(),
+		middleware.ErrorHandler,
 	)
 	// 注册业务路由
 	baseLogger := log.Logger.With().Str("module", "http").Logger()
