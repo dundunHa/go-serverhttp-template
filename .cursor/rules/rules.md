@@ -1,0 +1,125 @@
+# 脚手架项目开发规范
+
+本规则文档用于约束基于本脚手架的 Go 服务项目开发，确保项目结构统一、依赖可控、代码质量高、发布流程规范。
+
+---
+
+## 1. 目录结构
+
+推荐目录结构：
+
+```
+.
+├── .cursor/           # 脚手架相关配置及规则
+│   └── rules.md       # 本规范文档
+├── cmd/
+│   └── <app>/         # 应用入口
+│       └── main.go
+├── internal/          # 私有应用代码
+│   ├── transport/
+│   │   └── http/      # HTTP 服务相关
+│   │       └── ...
+│   ├── service/       # 业务逻辑
+│   ├── repository/    # 数据持久层
+│   ├── model/         # 域模型
+│   └── ...
+├── pkg/               # 对外暴露的公共库
+├── configs/           # 配置文件模板
+│   └── config.yaml
+├── scripts/           # 各种脚本工具
+├── build/             # 构建输出目录
+├── go.mod
+├── go.sum
+├── Makefile           # 常用命令
+└── README.md
+```
+
+## 2. 依赖管理
+
+1. 使用 Go Modules 管理依赖。
+2. `go.mod` 中需明确指定依赖版本，不使用 `latest`。
+3. 禁止在生产配置或 CI 中使用 `replace` 将模块指向本地路径。
+4. 提交前必须执行：
+   ```bash
+   go mod tidy
+   go mod verify
+   ```
+5. 定期更新依赖版本，更新前阅读 CHANGELOG 并评估兼容性。
+
+## 3. 代码规范
+
+- 使用 `gofmt`、`goimports` 格式化代码。
+- 集成 `golangci-lint`，启用 `govet`、`staticcheck`、`errcheck`、`unused` 等检查。
+- 包命名全小写且简洁，文件名全小写且以 `_` 分隔。
+- 导出标识符使用 PascalCase，内部标识符使用 camelCase。
+- 注释必须规范、完整，公有函数和类型需要有 GoDoc 注释。
+
+## 4. 接口与校验
+
+- 路由定义遵循 RESTful 风格，URL 路径小写及短横线分隔。
+- 结构体字段使用标签：
+  - `uri:"<name>"` 绑定路径参数
+  - `query:"<name>"` 绑定查询参数
+  - `json:"<name>"` 绑定请求/响应字段
+  - `validate:"..."` 定义校验规则（使用 `go-playground/validator`）。
+- 统一错误响应格式：
+  ```json
+  {
+    "code": <int>,
+    "message": "<string>",
+    "data": <object|null>
+  }
+  ```
+- 建议使用结构化日志（如 `zap`、`zerolog`）并在请求链路中传递 `context`。
+
+## 5. 配置管理
+
+- 使用 `envconfig` 或 `viper` 加载配置，支持环境变量和配置文件。
+- 配置结构体需使用 `mapstructure` 或 `env` tag 对应字段。
+- 在 `main` 函数初始化时加载配置并校验。
+
+## 6. 测试规范
+
+- 单元测试放在同包下，文件名以 `_test.go` 结尾。
+- 推荐 table-driven 测试。
+- 集成测试可使用 Docker Compose 或 Testcontainers。
+- CI 中设置最低覆盖率（例如 80%），执行：
+  ```bash
+  go test ./... -coverprofile=coverage.out
+  go tool cover -func=coverage.out
+  ```
+
+## 7. CI/CD
+
+- 使用 GitHub Actions 或 GitLab CI。
+- 基本流程：Lint → Test → Build → Release。
+- Docker 镜像采用多阶段构建，基础镜像推荐 `scratch` 或 `alpine`。
+- 添加安全扫描（如 `govulncheck`）。
+
+## 8. 发布管理
+
+- 使用语义化版本（`vMAJOR.MINOR.PATCH`）打 tag。
+- 维护 `CHANGELOG.md`，按 `Added/Changed/Fixed` 分类。
+- 可集成 `goreleaser` 自动化生成发布包。
+
+## 9. 安全与审计
+
+- 禁止硬编码敏感信息，使用 Vault、AWS Secrets Manager 等方案管理凭证。
+- PR 必须至少一名审核通过后才能合并。
+- 定期依赖漏洞扫描并修复。
+
+## 10. 文档与贡献
+
+- README.md 包含项目介绍、快速启动示例、目录说明。
+- 提供 `CONTRIBUTING.md` 和 `CODE_OF_CONDUCT.md`。
+- API 文档可使用 OpenAPI/Swagger 自动生成。
+
+## 11. 版本控制与提交
+
+- 分支命名：`feature/`、`fix/`、`release/`。
+- 提交信息遵循 Conventional Commits 规范。
+- PR 描述需包含变更背景、解决方案、相关 issue 链接。
+
+---
+
+持续更新与完善本规则，以适应业务和技术演进。后续对脚手架项目的开发和使用均需遵守本规范。 
