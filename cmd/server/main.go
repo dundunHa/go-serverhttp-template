@@ -18,6 +18,7 @@ import (
 	"go-serverhttp-template/internal/router"
 	"go-serverhttp-template/internal/service"
 	"go-serverhttp-template/internal/service/auth"
+	"go-serverhttp-template/internal/storage"
 	httpserver "go-serverhttp-template/internal/transport/http"
 	"go-serverhttp-template/internal/transport/http/middleware"
 	"go-serverhttp-template/pkg/cache"
@@ -33,7 +34,7 @@ func main() {
 	initLogger(conf.Log)
 	initCache(conf.Cache)
 
-	db, err := initDB(conf)
+	db, err := storage.InitDB()
 	if err != nil {
 		log.Fatal().Err(err).Msg("init db failed")
 	}
@@ -69,10 +70,6 @@ func initCache(cfg config.CacheConfig) {
 	}
 	cache.Init(cacheCfg)
 	log.Info().Msg("Cache initialized")
-}
-
-func initDB(cfg *config.Config) (*sql.DB, error) {
-	return sql.Open("postgres", cfg.DB.Mysql.Addr)
 }
 
 func initUserDAO(db *sql.DB) dao.UserDAO {

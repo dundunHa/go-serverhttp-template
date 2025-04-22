@@ -55,7 +55,7 @@ type AppleConfig struct {
 // LoadConfig 使用 envconfig 一次性处理所有字段
 func LoadConfig() (*Config, error) {
 	var cfg Config
-	if err := envconfig.Process("", &cfg); err != nil {
+	if err := envconfig.Process("SERVER", &cfg); err != nil {
 		return nil, fmt.Errorf("envconfig.Process: %w", err)
 	}
 	return &cfg, nil

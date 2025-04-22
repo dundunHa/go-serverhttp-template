@@ -21,5 +21,6 @@ func (d *userDAO) FindByID(id int) (*User, error) {
 	u := &User{}
 	err := d.db.QueryRow("SELECT id,name FROM users WHERE id=$1", id).
 		Scan(&u.ID, &u.Name)
+
 	return u, err
 }

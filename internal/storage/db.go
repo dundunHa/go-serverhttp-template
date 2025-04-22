@@ -1,31 +1,31 @@
 package storage
 
 import (
+	"database/sql"
 	"log"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	_ "github.com/lib/pq"
 
 	"go-serverhttp-template/internal/config"
 )
 
-var DB *gorm.DB
+var DB *sql.DB
 
-func InitDB() error {
-	conf, err := config.LoadConfig()
+func InitDB() (*sql.DB, error) {
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	DB, err = gorm.Open(postgres.Open(conf.DB.Mysql.Addr), &gorm.Config{})
+	db, err := sql.Open("postgres", cfg.DB.Mysql.Addr)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if err := db.Ping(); err != nil {
+		return nil, err
 	}
 
-	//if err := DB.AutoMigrate(&model.example{}); err != nil {
-	//	return err
-	//}
-
-	log.Println("PostgreSQL Database initialized and migrated successfully.")
-	return nil
+	DB = db
+	log.Println("PostgreSQL Database initialized successfully.")
+	return db, nil
 }
