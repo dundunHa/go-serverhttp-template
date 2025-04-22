@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
-	chiMw "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+
+	chiMw "github.com/go-chi/chi/v5/middleware"
 )
 
 const maxBodyLogSize = 8 * 1024

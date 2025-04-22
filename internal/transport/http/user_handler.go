@@ -1,13 +1,12 @@
 package httpserver
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"go-serverhttp-template/internal/service"
-
 	"github.com/go-chi/chi/v5"
+
+	"go-serverhttp-template/internal/service"
 )
 
 type UserHandler struct {
@@ -26,8 +25,10 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
 	u, err := h.svc.GetUser(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		WriteJSON(w, http.StatusNotFound, map[string]interface{}{
+			"error": err.Error(),
+		})
 		return
 	}
-	json.NewEncoder(w).Encode(u)
+	WriteJSON(w, http.StatusOK, u)
 }

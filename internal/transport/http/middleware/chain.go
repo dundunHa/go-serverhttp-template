@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	httpserver "go-serverhttp-template/internal/transport/http"
-
 	"github.com/go-chi/cors"
 	"github.com/rs/zerolog/log"
+
+	httpserver "go-serverhttp-template/internal/transport/http"
 )
 
 // Recovery 中间件，捕获 panic

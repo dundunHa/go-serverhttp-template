@@ -9,7 +9,7 @@ import (
 	httpmiddleware "go-serverhttp-template/internal/transport/http/middleware"
 )
 
-func Register(r chi.Router, logger *zerolog.Logger, userHandler *httpserver.UserHandler) {
+func Register(r chi.Router, logger *zerolog.Logger, userHandler *httpserver.UserHandler, authHandler *httpserver.AuthHandler) {
 	r.Use(httpmiddleware.InjectRootLogger(logger))
 	r.Route("/hello", func(g chi.Router) {
 		g.Use(httpmiddleware.LoggingMiddleware("hello"))
@@ -17,5 +17,8 @@ func Register(r chi.Router, logger *zerolog.Logger, userHandler *httpserver.User
 	})
 	r.Route("/users", func(g chi.Router) {
 		userHandler.Register(g)
+	})
+	r.Route("/auth", func(g chi.Router) {
+		authHandler.Register(g)
 	})
 }

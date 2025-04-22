@@ -12,8 +12,11 @@ import (
 var DB *gorm.DB
 
 func InitDB() error {
-	conf := config.LoadConfig()
-	var err error
+	conf, err := config.LoadConfig()
+	if err != nil {
+		return err
+	}
+
 	DB, err = gorm.Open(postgres.Open(conf.DB.Mysql.Addr), &gorm.Config{})
 	if err != nil {
 		return err

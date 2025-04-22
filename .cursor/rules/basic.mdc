@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # 脚手架项目开发规范
 
@@ -80,7 +80,7 @@ alwaysApply: false
 
 ## 5. 配置管理
 
-- 使用 `envconfig` 或 `viper` 加载配置，支持环境变量和配置文件。
+- 使用 `envconfig` 加载配置，支持环境变量读取配置，不适用配置文件。
 - 配置结构体需使用 `mapstructure` 或 `env` tag 对应字段。
 - 在 `main` 函数初始化时加载配置并校验。
 

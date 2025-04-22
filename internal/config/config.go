@@ -1,88 +1,62 @@
 package config
 
 import (
-	"os"
-	"strconv"
+	"fmt"
 	"time"
+
+	"github.com/kelseyhightower/envconfig"
 
 	logpkg "go-serverhttp-template/pkg/log"
 )
 
-// CacheConfig 定义 Redis 缓存相关配置
-// 可根据需要调整字段名和类型
-type CacheConfig struct {
-	Addrs        []string      `mapstructure:"addrs" json:"addrs" yaml:"addrs"`
-	Password     string        `mapstructure:"password" json:"password" yaml:"password"`
-	DB           int           `mapstructure:"db" json:"db" yaml:"db"`
-	PoolSize     int           `mapstructure:"pool_size" json:"pool_size" yaml:"pool_size"`
-	DialTimeout  time.Duration `mapstructure:"dial_timeout" json:"dial_timeout" yaml:"dial_timeout"`
-	ReadTimeout  time.Duration `mapstructure:"read_timeout" json:"read_timeout" yaml:"read_timeout"`
-	WriteTimeout time.Duration `mapstructure:"write_timeout" json:"write_timeout" yaml:"write_timeout"`
-}
-
+// Config 整个服务的配置结构
 type Config struct {
 	Server struct {
-		Port int
-	}
+		Port int `envconfig:"PORT" default:"8080"`
+	} `envconfig:"SERVER"`
 
 	DB struct {
 		Mysql struct {
-			Addr string
-		}
-	}
+			Addr string `envconfig:"ADDR" required:"true"`
+		} `envconfig:"MYSQL"`
+	} `envconfig:"DB"`
 
-	Log logpkg.Config
+	Log logpkg.Config `envconfig:"LOG"`
 
-	Cache CacheConfig `mapstructure:"cache" json:"cache" yaml:"cache"`
+	Cache CacheConfig `envconfig:"CACHE"`
+
+	Auth AuthConfig `envconfig:"AUTH"`
 }
 
-var conf *Config
+// CacheConfig 定义 Redis 缓存相关配置
+// 可根据需要调整字段名和类型
+type CacheConfig struct {
+	Addrs        []string      `envconfig:"ADDRS" default:"localhost:6379"`
+	Password     string        `envconfig:"PASSWORD"`
+	DB           int           `envconfig:"DB" default:"0"`
+	PoolSize     int           `envconfig:"POOL_SIZE" default:"10"`
+	DialTimeout  time.Duration `envconfig:"DIAL_TIMEOUT" default:"5s"`
+	ReadTimeout  time.Duration `envconfig:"READ_TIMEOUT" default:"3s"`
+	WriteTimeout time.Duration `envconfig:"WRITE_TIMEOUT" default:"3s"`
+}
 
-func LoadConfig() *Config {
-	if conf != nil {
-		return conf
-	}
+// AuthConfig 认证相关配置
+type AuthConfig struct {
+	Apple AppleConfig `envconfig:"APPLE"`
+}
 
-	dbAddr := os.Getenv("DB_ADDR")
-	portStr := os.Getenv("SERVER_PORT")
-	if portStr == "" {
-		portStr = "8080"
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		port = 8080
-	}
-	env := os.Getenv("GO_ENV")
-	if env == "" {
-		env = "development"
-	}
-	logLevel := os.Getenv("LOG_LEVEL")
-	if logLevel == "" {
-		logLevel = "debug"
-	}
-	logPath := os.Getenv("LOG_PATH")
-	if logPath == "" {
-		logPath = "./logs"
-	}
-	appName := os.Getenv("APP_NAME")
-	if appName == "" {
-		appName = "go-serverhttp-template"
-	}
-	appVersion := os.Getenv("APP_VERSION")
-	if appVersion == "" {
-		appVersion = "0.0.1"
-	}
+// AppleConfig Apple认证相关配置
+type AppleConfig struct {
+	ClientID        string        `envconfig:"CLIENT_ID" required:"true"`
+	JwksURL         string        `envconfig:"JWKS_URL" default:"https://appleid.apple.com/auth/keys"`
+	RefreshInterval time.Duration `envconfig:"REFRESH_INTERVAL" default:"1h"`
+}
 
-	conf = &Config{}
-	conf.DB.Mysql.Addr = dbAddr
-	conf.Server.Port = port
-	conf.Log = logpkg.Config{
-		Environment: env,
-		LogLevel:    logLevel,
-		LogPath:     logPath,
-		AppName:     appName,
-		AppVersion:  appVersion,
+// LoadConfig 使用 envconfig 一次性处理所有字段
+func LoadConfig() (*Config, error) {
+	var cfg Config
+	if err := envconfig.Process("", &cfg); err != nil {
+		return nil, fmt.Errorf("envconfig.Process: %w", err)
 	}
-
-	return conf
+	return &cfg, nil
 }

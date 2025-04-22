@@ -15,6 +15,5 @@ func NewUserService(d dao.UserDAO) UserService {
 }
 
 func (s *userService) GetUser(id int) (*dao.User, error) {
-	// 这里可加业务校验、缓存、事务等
 	return s.dao.FindByID(id)
 }

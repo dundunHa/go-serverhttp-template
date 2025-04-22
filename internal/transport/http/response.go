@@ -1,14 +1,11 @@
 package httpserver
 
 import (
-	"encoding/json"
 	"net/http"
 )
 
 func WriteSuccess(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"code":    0,
 		"message": "ok",
 		"data":    data,
@@ -16,7 +13,5 @@ func WriteSuccess(w http.ResponseWriter, data interface{}) {
 }
 
 func WriteError(w http.ResponseWriter, err *APIError) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(err)
+	WriteJSON(w, http.StatusOK, err)
 }
