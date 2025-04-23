@@ -76,7 +76,7 @@ alwaysApply: true
     "data": <object|null>
   }
   ```
-- 建议使用结构化日志（如 `zap`、`zerolog`）并在请求链路中传递 `context`。
+- 建议使用结构化日志（`zerolog`）并在请求链路中传递 `context`。
 
 ## 5. 配置管理
 

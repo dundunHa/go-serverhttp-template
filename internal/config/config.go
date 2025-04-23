@@ -9,6 +9,14 @@ import (
 	logpkg "go-serverhttp-template/pkg/log"
 )
 
+// ComfyUIConfig 定义与 ComfyUI 交互所需配置
+type ComfyUIConfig struct {
+	Host         string        `envconfig:"HOST" default:"http://localhost:8188"`
+	Timeout      time.Duration `envconfig:"TIMEOUT" default:"60s"`
+	RetryCount   int           `envconfig:"RETRY_COUNT" default:"3"`
+	PollInterval time.Duration `envconfig:"POLL_INTERVAL" default:"500ms"`
+}
+
 // Config 整个服务的配置结构
 type Config struct {
 	Server struct {
@@ -26,6 +34,9 @@ type Config struct {
 	Cache CacheConfig `envconfig:"CACHE"`
 
 	Auth AuthConfig `envconfig:"AUTH"`
+
+	// ComfyUI 相关配置
+	ComfyUI ComfyUIConfig `envconfig:"COMFYUI"`
 }
 
 // CacheConfig 定义 Redis 缓存相关配置
@@ -55,8 +66,13 @@ type AppleConfig struct {
 // LoadConfig 使用 envconfig 一次性处理所有字段
 func LoadConfig() (*Config, error) {
 	var cfg Config
+	// 加载 SERVER_*、DB_*、LOG_* 等
 	if err := envconfig.Process("SERVER", &cfg); err != nil {
-		return nil, fmt.Errorf("envconfig.Process: %w", err)
+		return nil, fmt.Errorf("envconfig.Process SERVER: %w", err)
+	}
+	// 单独加载 COMFYUI_* 环境变量
+	if err := envconfig.Process("COMFYUI", &cfg.ComfyUI); err != nil {
+		return nil, fmt.Errorf("envconfig.Process COMFYUI: %w", err)
 	}
 	return &cfg, nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
+	"go-serverhttp-template/internal/comfyui"
 	"go-serverhttp-template/internal/config"
 	"go-serverhttp-template/internal/dao"
 	"go-serverhttp-template/internal/router"
@@ -48,7 +49,11 @@ func main() {
 	authHandler := httpserver.NewAuthHandler(authSvc)
 	userHandler := initUserHandler(userSvc)
 
-	srv := newHTTPServer(conf.Server.Port, userHandler, authHandler)
+	// 初始化 ComfyUI 客户端
+	comfyUIClient := comfyui.NewClient(conf.ComfyUI)
+	comfyUIHandler := httpserver.NewComfyUIHandler(comfyUIClient)
+
+	srv := newHTTPServer(conf.Server.Port, userHandler, authHandler, comfyUIHandler)
 	startServer(srv)
 
 	waitForShutdown(srv, 10*time.Second)
@@ -85,7 +90,7 @@ func initUserHandler(userSvc service.UserService) *httpserver.UserHandler {
 }
 
 // 构建一个带中间件和路由的 HTTP Server
-func newHTTPServer(port int, userHandler *httpserver.UserHandler, authHandler *httpserver.AuthHandler) *http.Server {
+func newHTTPServer(port int, userHandler *httpserver.UserHandler, authHandler *httpserver.AuthHandler, comfyUIHandler *httpserver.ComfyUIHandler) *http.Server {
 	svc := httpserver.NewServer()
 	svc.Use(
 		middleware.Recovery,
@@ -95,7 +100,7 @@ func newHTTPServer(port int, userHandler *httpserver.UserHandler, authHandler *h
 
 	baseLogger := log.Logger.With().Str("module", "http").Logger()
 	svc.WithRoutes(func(r chi.Router) {
-		router.Register(r, &baseLogger, userHandler, authHandler)
+		router.Register(r, &baseLogger, userHandler, authHandler, comfyUIHandler)
 	})
 	httpserver.MountSwagger(svc.Router())
 
