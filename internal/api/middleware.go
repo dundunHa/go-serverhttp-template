@@ -4,23 +4,26 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"runtime/debug"
 	"strings"
 	"time"
 
-	chiMw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/google/uuid"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+
+	chiMw "github.com/go-chi/chi/v5/middleware"
+
+	logpkg "github.com/dundunHa/go-serverhttp-template/pkg/log"
 )
 
 const maxBodyLogSize = 8 * 1024
+const truncatedBodyLogValue = "[TRUNCATED]"
 
 type responseCapture struct {
 	chiMw.WrapResponseWriter
-	body *bytes.Buffer
+	body      *bytes.Buffer
+	truncated bool
 }
 
 func newResponseCapture(w http.ResponseWriter, protoMajor int) *responseCapture {
@@ -31,18 +34,44 @@ func newResponseCapture(w http.ResponseWriter, protoMajor int) *responseCapture 
 }
 
 func (rc *responseCapture) Write(b []byte) (int, error) {
-	rc.body.Write(b)
+	rc.captureBody(b)
 	return rc.WrapResponseWriter.Write(b)
+}
+
+func (rc *responseCapture) captureBody(b []byte) {
+	if rc.body.Len() > maxBodyLogSize {
+		rc.truncated = true
+		return
+	}
+	remaining := maxBodyLogSize + 1 - rc.body.Len()
+	if len(b) > remaining {
+		rc.truncated = true
+		_, _ = rc.body.Write(b[:remaining])
+		return
+	}
+	_, _ = rc.body.Write(b)
+}
+
+func (rc *responseCapture) logBody() string {
+	if rc.truncated || rc.body.Len() > maxBodyLogSize {
+		return truncatedBodyLogValue
+	}
+	return redactSensitiveJSON(rc.body.String())
 }
 
 func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Error().Interface("panic", err).Bytes("stack", debug.Stack()).Msg("panic recovered")
+				logpkg.FromContext(r.Context()).ErrorContext(
+					r.Context(),
+					"panic recovered",
+					"panic", err,
+					"stack", string(debug.Stack()),
+				)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]any{
 					"code":    http.StatusInternalServerError,
 					"message": "internal server error",
 				})
@@ -61,55 +90,80 @@ func CORS() func(http.Handler) http.Handler {
 	})
 }
 
-func InjectRootLogger(root *zerolog.Logger) func(http.Handler) http.Handler {
+func InjectRootLogger(root *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r = r.WithContext(root.WithContext(r.Context()))
+			r = r.WithContext(logpkg.NewContext(r.Context(), root))
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-func Logging(module string) func(http.Handler) http.Handler {
+func Logging() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rootLogger := zerolog.Ctx(r.Context())
-			logger := rootLogger.With().
-				Str("module", module).
-				Str("trace_id", headerOrNewID(r, "X-Trace-ID")).
-				Str("request_id", headerOrNewID(r, "X-Request-ID")).
-				Str("client_ip", clientIP(r)).
-				Logger()
-			r = r.WithContext(logger.WithContext(r.Context()))
+			rootLogger := logpkg.FromContext(r.Context())
+			requestID := requestID(r)
+			logger := rootLogger.With(
+				"module", moduleName(r.URL.Path),
+				"trace_id", headerOrDefault(r, "X-Trace-ID", requestID),
+				"request_id", requestID,
+				"client_ip", clientIP(r),
+			)
+			r = r.WithContext(logpkg.NewContext(r.Context(), logger))
 
 			start := time.Now()
-			requestBody := readSmallRequestBody(r)
-			logger.Info().
-				Str("phase", "start").
-				Str("method", r.Method).
-				Str("uri", r.RequestURI).
-				Interface("query", r.URL.Query()).
-				Str("body", requestBody).
-				Msg("Started Request")
+			requestBody := readRequestBodyForLog(r)
+			logger.InfoContext(
+				r.Context(),
+				"Started Request",
+				"phase", "start",
+				"method", r.Method,
+				"uri", r.RequestURI,
+				"query", r.URL.Query(),
+				"body", requestBody,
+			)
 
 			ww := newResponseCapture(w, r.ProtoMajor)
 			next.ServeHTTP(ww, r)
 
-			logger.Info().
-				Str("phase", "completed").
-				Int("status", ww.Status()).
-				Dur("duration", time.Since(start)).
-				Str("response_body", truncate(ww.body.String(), maxBodyLogSize)).
-				Msg("Completed Request")
+			logger.InfoContext(
+				r.Context(),
+				"Completed Request",
+				"phase", "completed",
+				"status", ww.Status(),
+				"duration", time.Since(start),
+				"response_body", ww.logBody(),
+			)
 		})
 	}
 }
 
-func headerOrNewID(r *http.Request, name string) string {
+func moduleName(path string) string {
+	switch {
+	case path == "/hello", strings.HasPrefix(path, "/docs"), strings.HasPrefix(path, "/openapi"):
+		return "system"
+	case strings.HasPrefix(path, "/auth"):
+		return "auth"
+	case strings.HasPrefix(path, "/users"):
+		return "users"
+	default:
+		return "http"
+	}
+}
+
+func headerOrDefault(r *http.Request, name string, fallback string) string {
 	if value := r.Header.Get(name); value != "" {
 		return value
 	}
-	return uuid.New().String()
+	return fallback
+}
+
+func requestID(r *http.Request) string {
+	if value := chiMw.GetReqID(r.Context()); value != "" {
+		return value
+	}
+	return r.Header.Get(chiMw.RequestIDHeader)
 }
 
 func clientIP(r *http.Request) string {
@@ -122,24 +176,64 @@ func clientIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-func readSmallRequestBody(r *http.Request) string {
+func readRequestBodyForLog(r *http.Request) string {
 	switch r.Method {
 	case http.MethodPost, http.MethodPut, http.MethodPatch:
 	default:
 		return ""
 	}
-	bodyBytes, err := io.ReadAll(r.Body)
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, maxBodyLogSize+1))
 	if err != nil {
-		zerolog.Ctx(r.Context()).Error().Err(err).Msg("read request body failed")
+		logpkg.FromContext(r.Context()).ErrorContext(r.Context(), "read request body failed", "err", err)
 		return ""
 	}
-	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-	return truncate(string(bodyBytes), maxBodyLogSize)
+	r.Body = io.NopCloser(io.MultiReader(bytes.NewReader(bodyBytes), r.Body))
+	if len(bodyBytes) > maxBodyLogSize {
+		return truncatedBodyLogValue
+	}
+	return redactSensitiveJSON(string(bodyBytes))
 }
 
-func truncate(value string, limit int) string {
-	if len(value) <= limit {
+func redactSensitiveJSON(value string) string {
+	if value == "" {
+		return ""
+	}
+
+	var decoded any
+	if err := json.Unmarshal([]byte(value), &decoded); err != nil {
 		return value
 	}
-	return value[:limit] + "... (truncated)"
+	redactSensitiveValue(decoded)
+
+	redacted, err := json.Marshal(decoded)
+	if err != nil {
+		return value
+	}
+	return string(redacted)
+}
+
+func redactSensitiveValue(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, field := range typed {
+			if isSensitiveField(key) {
+				typed[key] = "[REDACTED]"
+				continue
+			}
+			redactSensitiveValue(field)
+		}
+	case []any:
+		for _, item := range typed {
+			redactSensitiveValue(item)
+		}
+	}
+}
+
+func isSensitiveField(field string) bool {
+	switch strings.ToLower(field) {
+	case "token", "access_token", "refresh_token", "id_token", "password", "secret":
+		return true
+	default:
+		return false
+	}
 }

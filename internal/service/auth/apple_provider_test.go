@@ -91,8 +91,8 @@ func TestAppleProvider_VerifyToken(t *testing.T) {
 			if err != nil {
 				t.Fatalf("意外错误: %v", err)
 			}
-			// 校验返回的 UserInfo
-			if ui.Provider != "apple" || ui.ID != "sub123" || ui.Email != "test@example.com" {
+			// 校验返回的 provider identity
+			if ui.Provider != "apple" || ui.Subject != "sub123" || ui.Email != "test@example.com" {
 				t.Errorf("返回值不正确: %+v", ui)
 			}
 		})
@@ -146,7 +146,7 @@ func TestAppleProvider_VerifyToken_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("期望正常通过，实际出错: %v", err)
 	}
-	if ui.Provider != "apple" || ui.ID != "user-123" || ui.Email != "ok@apple.com" {
+	if ui.Provider != "apple" || ui.Subject != "user-123" || ui.Email != "ok@apple.com" {
 		t.Errorf("返回值不正确: %+v", ui)
 	}
 }

@@ -10,10 +10,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server ./cmd/server
 FROM alpine:3.19
 WORKDIR /app
 COPY --from=builder /app/server ./server
-RUN mkdir -p /app/logs
 EXPOSE 8080
 ENV SERVER_PORT=8080 \
-    LOG_FILE=./logs/app.log \
-    LOG_LEVEL=info \
-    LOG_FORMAT=json
+    APP_ENV=prod \
+    LOG_LEVEL=info
 ENTRYPOINT ["/app/server"] 

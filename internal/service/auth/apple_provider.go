@@ -54,7 +54,7 @@ func (p *AppleProvider) refreshKeys(ctx context.Context) error {
 }
 
 // VerifyToken 校验 Apple ID Token
-func (p *AppleProvider) VerifyToken(ctx context.Context, token string) (*model.UserInfo, error) {
+func (p *AppleProvider) VerifyToken(ctx context.Context, token string) (*model.AuthIdentity, error) {
 	if token == "" {
 		return nil, ErrInvalidToken
 	}
@@ -103,9 +103,9 @@ func (p *AppleProvider) VerifyToken(ctx context.Context, token string) (*model.U
 		return nil, ErrAuthFailed
 	}
 
-	return &model.UserInfo{
-		ID:       claims.Subject,
-		Email:    claims.Email,
+	return &model.AuthIdentity{
 		Provider: "apple",
+		Subject:  claims.Subject,
+		Email:    claims.Email,
 	}, nil
 }

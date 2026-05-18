@@ -14,13 +14,12 @@ func NewGuestProvider() *GuestProvider {
 }
 
 // VerifyToken 直接将 token 作为设备ID返回
-func (p *GuestProvider) VerifyToken(ctx context.Context, token string) (*model.UserInfo, error) {
+func (p *GuestProvider) VerifyToken(ctx context.Context, token string) (*model.AuthIdentity, error) {
 	if token == "" {
 		return nil, ErrInvalidToken
 	}
-	return &model.UserInfo{
-		ID:       token,
-		Email:    "",
+	return &model.AuthIdentity{
 		Provider: "guest",
+		Subject:  token,
 	}, nil
 }

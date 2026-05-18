@@ -8,13 +8,14 @@ import (
 )
 
 // AuthProvider 统一认证接口
-// 只需实现 VerifyToken，返回 UserInfo
 type AuthProvider interface {
-	VerifyToken(ctx context.Context, token string) (*model.UserInfo, error)
+	VerifyToken(ctx context.Context, token string) (*model.AuthIdentity, error)
 }
 
 var (
-	ErrInvalidToken     = errors.New("invalid token")
-	ErrAuthFailed       = errors.New("authentication failed")
-	ErrProviderNotFound = errors.New("provider not found")
+	ErrInvalidToken        = errors.New("invalid token")
+	ErrAuthFailed          = errors.New("authentication failed")
+	ErrProviderNotFound    = errors.New("provider not found")
+	ErrIdentityUnavailable = errors.New("identity resolver unavailable")
+	ErrTokenUnavailable    = errors.New("token service unavailable")
 )

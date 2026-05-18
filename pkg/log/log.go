@@ -1,49 +1,73 @@
 package log
 
 import (
+	"context"
 	"io"
-	stdlog "log"
+	"log/slog"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"gopkg.in/natefinch/lumberjack.v2"
+	stdlog "log"
 )
 
 type Config struct {
-	Level      string `envconfig:"LEVEL" default:"info"`
-	Format     string `envconfig:"FORMAT" default:"console"`
-	File       string `envconfig:"FILE"`
-	MaxSize    int    `envconfig:"MAX_SIZE" default:"100"`
-	MaxBackups int    `envconfig:"MAX_BACKUPS" default:"3"`
-	MaxAge     int    `envconfig:"MAX_AGE" default:"28"`
-	Compress   bool   `envconfig:"COMPRESS" default:"true"`
+	Level string `envconfig:"LEVEL" default:"info"`
 }
 
-func InitLogger(cfg Config) {
-	level, err := zerolog.ParseLevel(strings.ToLower(cfg.Level))
-	if err != nil {
-		level = zerolog.InfoLevel
-	}
-	zerolog.SetGlobalLevel(level)
-	zerolog.TimeFieldFormat = time.RFC3339
+type contextKey struct{}
 
-	writer := io.Writer(os.Stdout)
-	if cfg.File != "" {
-		writer = &lumberjack.Logger{
-			Filename:   cfg.File,
-			MaxSize:    cfg.MaxSize,
-			MaxBackups: cfg.MaxBackups,
-			MaxAge:     cfg.MaxAge,
-			Compress:   cfg.Compress,
-		}
+func InitLogger(appEnv string, cfg Config) *slog.Logger {
+	level := parseLevel(cfg.Level)
+	handler := newHandler(appEnv, level, os.Stdout)
+	logger := slog.New(handler)
+
+	slog.SetDefault(logger)
+	stdlog.SetFlags(0)
+	stdlog.SetOutput(slog.NewLogLogger(handler, level).Writer())
+
+	return logger
+}
+
+func NewContext(ctx context.Context, logger *slog.Logger) context.Context {
+	if logger == nil {
+		logger = slog.Default()
 	}
-	if strings.EqualFold(cfg.Format, "console") {
-		writer = zerolog.ConsoleWriter{Out: writer, TimeFormat: time.RFC3339}
+	return context.WithValue(ctx, contextKey{}, logger)
+}
+
+func FromContext(ctx context.Context) *slog.Logger {
+	if logger, ok := ctx.Value(contextKey{}).(*slog.Logger); ok && logger != nil {
+		return logger
+	}
+	return slog.Default()
+}
+
+func newHandler(appEnv string, level slog.Level, writer io.Writer) slog.Handler {
+	opts := &slog.HandlerOptions{Level: level}
+	if isProd(appEnv) {
+		return slog.NewJSONHandler(writer, opts)
+	}
+	return slog.NewTextHandler(writer, opts)
+}
+
+func isProd(appEnv string) bool {
+	switch strings.ToLower(strings.TrimSpace(appEnv)) {
+	case "prod", "production":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseLevel(level string) slog.Level {
+	level = strings.ToLower(strings.TrimSpace(level))
+	if level == "warning" {
+		return slog.LevelWarn
 	}
 
-	log.Logger = zerolog.New(writer).With().Timestamp().Logger()
-	stdlog.SetOutput(log.Logger)
+	var parsed slog.Level
+	if err := parsed.UnmarshalText([]byte(level)); err != nil {
+		return slog.LevelInfo
+	}
+	return parsed
 }

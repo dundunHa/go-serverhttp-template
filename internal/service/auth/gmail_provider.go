@@ -4,30 +4,37 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
+	"net/url"
 
+	"github.com/dundunHa/go-serverhttp-template/internal/config"
 	"github.com/dundunHa/go-serverhttp-template/internal/model"
 )
 
 // GmailProvider 实现 AuthProvider
 type GmailProvider struct {
-	clientID string
+	clientID   string
+	httpClient *http.Client
 }
 
-func NewGmailProvider() *GmailProvider {
+func NewGmailProvider(cfg config.GmailConfig) *GmailProvider {
 	return &GmailProvider{
-		clientID: os.Getenv("GMAIL_CLIENT_ID"),
+		clientID:   cfg.ClientID,
+		httpClient: http.DefaultClient,
 	}
 }
 
 // VerifyToken 校验 Google ID Token
-func (p *GmailProvider) VerifyToken(ctx context.Context, token string) (*model.UserInfo, error) {
+func (p *GmailProvider) VerifyToken(ctx context.Context, token string) (*model.AuthIdentity, error) {
 	if token == "" {
 		return nil, ErrInvalidToken
 	}
 	// 调用 Google tokeninfo API
-	url := "https://oauth2.googleapis.com/tokeninfo?id_token=" + token
-	resp, err := http.Get(url)
+	tokenInfoURL := "https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(token)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenInfoURL, nil)
+	if err != nil {
+		return nil, ErrAuthFailed
+	}
+	resp, err := p.client().Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		return nil, ErrAuthFailed
 	}
@@ -43,9 +50,16 @@ func (p *GmailProvider) VerifyToken(ctx context.Context, token string) (*model.U
 	if data.Aud != p.clientID {
 		return nil, ErrAuthFailed
 	}
-	return &model.UserInfo{
-		ID:       data.Sub,
-		Email:    data.Email,
+	return &model.AuthIdentity{
 		Provider: "gmail",
+		Subject:  data.Sub,
+		Email:    data.Email,
 	}, nil
+}
+
+func (p *GmailProvider) client() *http.Client {
+	if p.httpClient != nil {
+		return p.httpClient
+	}
+	return http.DefaultClient
 }
