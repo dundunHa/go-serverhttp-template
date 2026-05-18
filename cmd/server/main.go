@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	chiMw "github.com/go-chi/chi/v5/middleware"
 
@@ -38,14 +37,14 @@ func main() {
 	initLogger(conf.AppEnv, conf.Log)
 	initCache(conf.Cache)
 
-	db, err := storage.InitDB(conf.DB.DSN)
-	if err != nil && !errors.Is(err, storage.ErrMissingDSN) {
-		slog.Error("init db failed", "err", err)
+	ctx := context.Background()
+	db, err := storage.InitDB(ctx, conf.DB.DSN)
+	if err != nil {
+		slog.Error("init postgres failed", "err", err)
 		os.Exit(1)
 	}
-	if errors.Is(err, storage.ErrMissingDSN) {
-		slog.Warn("DB_DSN is empty; using in-memory demo user service")
-	}
+	defer db.Close()
+
 	userSvc := initUserService(db)
 	mgr := auth.NewProviderManager()
 	mgr.Register("gmail", auth.NewGmailProvider(conf.Auth.Gmail))
@@ -88,10 +87,7 @@ func initCache(cfg config.CacheConfig) {
 	slog.Info("Cache initialized")
 }
 
-func initUserService(db *sql.DB) service.UserService {
-	if db == nil {
-		return service.NewMemoryUserService()
-	}
+func initUserService(db *pgxpool.Pool) service.UserService {
 	return service.NewUserService(dao.NewUserDAO(db))
 }
 

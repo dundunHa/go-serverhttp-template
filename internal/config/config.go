@@ -18,7 +18,7 @@ type Config struct {
 	} `envconfig:"SERVER"`
 
 	DB struct {
-		DSN string `envconfig:"DSN"`
+		DSN string `envconfig:"DSN" default:"postgres://postgres:postgres@localhost:5432/app?sslmode=disable"`
 	} `envconfig:"DB"`
 
 	Log logpkg.Config `envconfig:"LOG"`

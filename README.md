@@ -11,9 +11,13 @@
 ├── cmd/               # 应用入口
 │   └── server/        # 服务入口
 │       └── main.go
+├── db/                # PostgreSQL schema 和 sqlc 查询
+│   ├── migrations/    # 表结构 SQL
+│   └── queries/       # sqlc 查询 SQL
 ├── internal/          # 私有应用代码
 │   ├── config/        # 配置加载
 │   ├── api/           # Huma API 注册和 HTTP contract
+│   ├── db/            # sqlc 生成的数据访问代码
 │   ├── model/         # 领域模型/DTO
 │   ├── service/       # 业务逻辑层
 │   ├── dao/           # 数据访问
@@ -56,12 +60,26 @@ Huma 自动生成 OpenAPI 和交互文档：
 
 ## 本地运行
 
+默认使用 PostgreSQL，数据访问使用 `sqlc + pgx/v5 + pgxpool`。`DB_DSN` 默认值为：
+
 ```bash
+postgres://postgres:postgres@localhost:5432/app?sslmode=disable
+```
+
+首次本地运行前需要先创建数据库并应用 schema：
+
+```bash
+createdb app
+psql "postgres://postgres:postgres@localhost:5432/app?sslmode=disable" -f db/migrations/001_init.sql
 go test ./...
 go run ./cmd/server
 ```
 
-默认不要求数据库。未设置 `DB_DSN` 时，`/users/1` 使用内存 demo 数据，认证身份也映射到同一套内存用户服务，方便本地验证和 agent 开发。这个内存映射只适合 demo；生产环境应替换为持久化的 provider identity 到系统 user id 映射。
+修改 `db/queries` 或 `db/migrations` 后重新生成查询代码：
+
+```bash
+make sqlc
+```
 
 默认认证流程：
 

@@ -1,26 +1,27 @@
 package storage
 
 import (
-	"database/sql"
+	"context"
 	"errors"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var ErrMissingDSN = errors.New("database dsn is empty")
 
-func InitDB(dsn string) (*sql.DB, error) {
+func InitDB(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	if dsn == "" {
 		return nil, ErrMissingDSN
 	}
 
-	db, err := sql.Open("postgres", dsn)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
 		return nil, err
 	}
 
-	return db, nil
+	return pool, nil
 }

@@ -11,6 +11,7 @@ import (
 )
 
 var ErrAuthIdentityUnsupported = errors.New("auth identity resolution unsupported")
+var ErrUserNotFound = dao.ErrUserNotFound
 
 type UserService interface {
 	GetUser(ctx context.Context, id int) (*model.User, error)
@@ -26,13 +27,17 @@ func NewUserService(d dao.UserDAO) UserService {
 }
 
 func (s *userService) GetUser(ctx context.Context, id int) (*model.User, error) {
+	if s.dao == nil {
+		return nil, ErrUserNotFound
+	}
 	return s.dao.FindByID(ctx, id)
 }
 
 func (s *userService) ResolveAuthIdentity(ctx context.Context, identity model.AuthIdentity) (*model.UserInfo, error) {
-	_ = ctx
-	_ = identity
-	return nil, ErrAuthIdentityUnsupported
+	if s.dao == nil {
+		return nil, ErrAuthIdentityUnsupported
+	}
+	return s.dao.ResolveAuthIdentity(ctx, identity)
 }
 
 type authIdentityKey struct {
@@ -63,7 +68,7 @@ func (s *memoryUserService) GetUser(ctx context.Context, id int) (*model.User, e
 	defer s.mu.RUnlock()
 	user, ok := s.users[id]
 	if !ok {
-		return nil, dao.ErrUserNotFound
+		return nil, ErrUserNotFound
 	}
 	return &user, nil
 }
@@ -71,7 +76,7 @@ func (s *memoryUserService) GetUser(ctx context.Context, id int) (*model.User, e
 func (s *memoryUserService) ResolveAuthIdentity(ctx context.Context, identity model.AuthIdentity) (*model.UserInfo, error) {
 	_ = ctx
 	if identity.Provider == "" || identity.Subject == "" {
-		return nil, dao.ErrUserNotFound
+		return nil, ErrUserNotFound
 	}
 
 	key := authIdentityKey{

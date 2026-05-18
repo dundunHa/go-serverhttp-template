@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
@@ -91,7 +90,7 @@ func registerUserRoutes(api huma.API, userSvc service.UserService, authSvc auth.
 
 		user, err := userSvc.GetUser(ctx, id)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+			if errors.Is(err, service.ErrUserNotFound) {
 				return nil, huma.Error404NotFound("user not found")
 			}
 			return nil, huma.Error500InternalServerError("get user failed")
