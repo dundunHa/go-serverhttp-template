@@ -1,0 +1,78 @@
+version: "2"
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - dupl
+    - durationcheck
+    - errchkjson
+    - fatcontext
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - loggercheck
+    - makezero
+    - musttag
+    - nilerr
+    - nilnesserr
+    - perfsprint
+    - prealloc
+    - protogetter
+    - reassign
+    - recvcheck
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - testifylint
+    - zerologlint
+  disable:
+    - contextcheck
+    - cyclop
+    - errorlint
+    - exhaustive
+    - funlen
+    - gosec
+    - gosmopolitan
+    - noctx
+    - staticcheck
+    - unused
+    - ineffassign
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - errcheck
+        path: _test\.go$
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/org/project)
+        - blank
+        - dot
+        - alias
+        - localmodule
+      custom-order: false
+      no-lex-order: false
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
