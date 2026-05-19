@@ -40,10 +40,10 @@ func TestShouldFallbackToSandbox(t *testing.T) {
 
 func TestClassifyAppleError(t *testing.T) {
 	cases := []struct {
-		name        string
-		input       error
+		name         string
+		input        error
 		wantSentinel error
-		wantNil     bool
+		wantNil      bool
 	}{
 		{name: "nil_passthrough", input: nil, wantNil: true},
 		{name: "not_found_4040010", input: errors.New("apple status 4040010"), wantSentinel: ErrAppleTransactionNotFound},
@@ -75,12 +75,12 @@ func TestClassifyAppleError(t *testing.T) {
 
 func TestLooksLikeCompactJWS(t *testing.T) {
 	cases := map[string]bool{
-		"":              false,
-		"abc":           false,
-		"abc.def":       false,
-		"abc.def.ghi":   true,
-		"abc..ghi":      false,
-		"a.b.c.d":       false,
+		"":            false,
+		"abc":         false,
+		"abc.def":     false,
+		"abc.def.ghi": true,
+		"abc..ghi":    false,
+		"a.b.c.d":     false,
 		strings.Repeat("a", 10) + "." + strings.Repeat("b", 10) + "." + strings.Repeat("c", 10): true,
 	}
 	for in, want := range cases {

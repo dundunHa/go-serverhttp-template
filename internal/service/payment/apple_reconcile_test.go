@@ -45,7 +45,7 @@ func TestAppleReconcileService_ReplaysEachEventThroughReducer(t *testing.T) {
 		TransactionID: "tx", OriginalTransactionID: "ot",
 		AppAccountToken: tok, BundleID: "com.app.example",
 		Environment: EnvProduction, ProductID: "com.app.pro.monthly",
-		Type: "Auto-Renewable Subscription",
+		Type:         "Auto-Renewable Subscription",
 		PurchaseDate: now, ExpiresDate: now.Add(24 * time.Hour),
 	}
 	events := []AppleWebhookEvent{

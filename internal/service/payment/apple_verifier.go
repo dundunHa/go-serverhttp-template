@@ -122,7 +122,7 @@ func (v *gopayVerifier) FetchTransaction(ctx context.Context, txID string, env E
 		return nil, ErrNotConfigured
 	}
 	if strings.TrimSpace(txID) == "" {
-		return nil, fmt.Errorf("apple iap: transaction id required")
+		return nil, errors.New("apple iap: transaction id required")
 	}
 
 	preferProd := env != EnvSandbox
@@ -199,7 +199,7 @@ func (v *gopayVerifier) GetSubscriptionStatus(ctx context.Context, originalTrans
 	_ = ctx
 	_ = originalTransactionID
 	_ = env
-	return nil, fmt.Errorf("apple iap: GetSubscriptionStatus not implemented; use GetNotificationHistory replay")
+	return nil, errors.New("apple iap: GetSubscriptionStatus not implemented; use GetNotificationHistory replay")
 }
 
 // gopayWebhookVerifier 是 AppleWebhookVerifier 的生产实现。
@@ -228,14 +228,14 @@ func (w *gopayWebhookVerifier) DecodeSignedPayload(ctx context.Context, signedPa
 
 func decodeWebhookEvent(signedPayload, expectBundle string) (*AppleWebhookEvent, error) {
 	if !looksLikeCompactJWS(signedPayload) {
-		return nil, fmt.Errorf("apple iap: signedPayload is not a compact JWS")
+		return nil, errors.New("apple iap: signedPayload is not a compact JWS")
 	}
 	payload, err := gopayApple.DecodeSignedPayload(signedPayload)
 	if err != nil {
 		return nil, fmt.Errorf("apple iap: decode signed payload: %w", err)
 	}
 	if payload == nil || payload.NotificationUUID == "" {
-		return nil, fmt.Errorf("apple iap: missing notification uuid")
+		return nil, errors.New("apple iap: missing notification uuid")
 	}
 	ev := &AppleWebhookEvent{
 		NotificationUUID:    payload.NotificationUUID,

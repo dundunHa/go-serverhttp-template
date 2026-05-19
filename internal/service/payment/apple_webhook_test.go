@@ -63,7 +63,7 @@ func TestAppleWebhookService_DuplicateIsAcked(t *testing.T) {
 		TransactionID: "tx", OriginalTransactionID: "ot-dup",
 		AppAccountToken: tok, BundleID: "com.app.example",
 		Environment: EnvProduction, ProductID: "com.app.pro.monthly",
-		Type: "Auto-Renewable Subscription",
+		Type:         "Auto-Renewable Subscription",
 		PurchaseDate: now, ExpiresDate: now.Add(24 * time.Hour),
 	}
 	verifier := &fakeWebhookVerifier{event: makeEvent("DID_RENEW", "", tx)}
@@ -108,7 +108,7 @@ func TestAppleWebhookService_UnknownNotificationTypeIgnored(t *testing.T) {
 		TransactionID: "tx", OriginalTransactionID: "ot-unknown",
 		AppAccountToken: tok, BundleID: "com.app.example",
 		Environment: EnvProduction, ProductID: "com.app.pro.monthly",
-		Type: "Auto-Renewable Subscription",
+		Type:         "Auto-Renewable Subscription",
 		PurchaseDate: now, ExpiresDate: now.Add(24 * time.Hour),
 	}
 	verifier := &fakeWebhookVerifier{event: makeEvent("WEIRD_NEW_NOTIFICATION", "", tx)}

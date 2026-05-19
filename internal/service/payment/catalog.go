@@ -241,14 +241,14 @@ func (c *Catalog) IsEntitlementEnvironment(env Environment) bool {
 	return ok
 }
 
-func (c *Catalog) BundleID() string             { return c.bundleID }
-func (c *Catalog) IssuerID() string             { return c.issuerID }
-func (c *Catalog) KeyID() string                { return c.keyID }
-func (c *Catalog) PrivateKeyPEM() string        { return c.privateKeyPEM }
+func (c *Catalog) BundleID() string               { return c.bundleID }
+func (c *Catalog) IssuerID() string               { return c.issuerID }
+func (c *Catalog) KeyID() string                  { return c.keyID }
+func (c *Catalog) PrivateKeyPEM() string          { return c.privateKeyPEM }
 func (c *Catalog) AppleAPITimeout() time.Duration { return c.appleAPITimeout }
-func (c *Catalog) WebhookMaxBodyBytes() int     { return c.webhookMaxBodyBytes }
-func (c *Catalog) EnableSandboxFallback() bool  { return c.enableSandboxFallback }
-func (c *Catalog) StoreRawPayloads() bool       { return c.storeRawPayloads }
+func (c *Catalog) WebhookMaxBodyBytes() int       { return c.webhookMaxBodyBytes }
+func (c *Catalog) EnableSandboxFallback() bool    { return c.enableSandboxFallback }
+func (c *Catalog) StoreRawPayloads() bool         { return c.storeRawPayloads }
 
 // Products 返回 catalog 内产品的拷贝，调用方可自由修改返回切片而不影响内部状态。
 func (c *Catalog) Products() []Product {

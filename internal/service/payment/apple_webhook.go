@@ -51,7 +51,7 @@ func (s *AppleWebhookService) HandleSignedPayload(ctx context.Context, signedPay
 		return ErrNotConfigured
 	}
 	if strings.TrimSpace(signedPayload) == "" {
-		return fmt.Errorf("apple iap: empty signed payload")
+		return errors.New("apple iap: empty signed payload")
 	}
 
 	event, err := s.verifier.DecodeSignedPayload(ctx, signedPayload)
@@ -62,7 +62,7 @@ func (s *AppleWebhookService) HandleSignedPayload(ctx context.Context, signedPay
 		return fmt.Errorf("%w: missing notification uuid", ErrAppleAuthRejected)
 	}
 	if event.Environment == "" {
-		return fmt.Errorf("apple iap: missing environment in webhook")
+		return errors.New("apple iap: missing environment in webhook")
 	}
 
 	return s.dao.InTx(ctx, func(qtx dao.SubscriptionTx) error {

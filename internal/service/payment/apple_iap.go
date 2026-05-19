@@ -3,7 +3,6 @@ package payment
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -44,10 +43,10 @@ func (s *AppleIAPService) VerifyTransaction(ctx context.Context, userID int64, t
 		return nil, ErrNotConfigured
 	}
 	if userID <= 0 {
-		return nil, fmt.Errorf("apple iap: invalid user id")
+		return nil, errors.New("apple iap: invalid user id")
 	}
 	if strings.TrimSpace(transactionID) == "" {
-		return nil, fmt.Errorf("apple iap: transaction id required")
+		return nil, errors.New("apple iap: transaction id required")
 	}
 
 	tx, err := s.verifier.FetchTransaction(ctx, transactionID, EnvProduction)
@@ -107,10 +106,10 @@ func (s *AppleIAPService) validateTransaction(tx *AppleTransaction) error {
 		return ErrEmptyAppAccountToken
 	}
 	if tx.OriginalTransactionID == "" {
-		return fmt.Errorf("apple iap: missing original_transaction_id in transaction")
+		return errors.New("apple iap: missing original_transaction_id in transaction")
 	}
 	if tx.Environment == "" {
-		return fmt.Errorf("apple iap: missing environment in transaction")
+		return errors.New("apple iap: missing environment in transaction")
 	}
 	return nil
 }

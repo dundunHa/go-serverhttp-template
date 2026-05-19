@@ -50,12 +50,12 @@ const (
 
 // processing_status：apple_events 的处理结果，覆盖 reducer / 反查所需的全部分支。
 const (
-	EventStatusProcessed           = "PROCESSED"
-	EventStatusIgnoredDuplicate    = "IGNORED_DUPLICATE"
-	EventStatusIgnoredUnknownType  = "IGNORED_UNKNOWN_TYPE"
-	EventStatusPendingUserBinding  = "PENDING_USER_BINDING"
-	EventStatusOwnershipConflict   = "OWNERSHIP_CONFLICT"
-	EventStatusPermanentFailure    = "PERMANENT_FAILURE"
+	EventStatusProcessed          = "PROCESSED"
+	EventStatusIgnoredDuplicate   = "IGNORED_DUPLICATE"
+	EventStatusIgnoredUnknownType = "IGNORED_UNKNOWN_TYPE"
+	EventStatusPendingUserBinding = "PENDING_USER_BINDING"
+	EventStatusOwnershipConflict  = "OWNERSHIP_CONFLICT"
+	EventStatusPermanentFailure   = "PERMANENT_FAILURE"
 )
 
 // Subscription 是 apple_subscriptions 行的领域投影。reducer / reader 仅依赖此结构。
@@ -130,4 +130,3 @@ type AppleEventInsert struct {
 	DecodedPayload        []byte
 	NotificationCreatedAt *time.Time
 }
-

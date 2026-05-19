@@ -226,10 +226,10 @@ type subscriptionTxQueries struct {
 // 返回 (true, id, nil) 表示新事件，service 可继续 reduce subscription。
 func (s *subscriptionTxQueries) InsertAppleEventIfNotExists(ctx context.Context, in model.AppleEventInsert) (bool, int64, error) {
 	if in.NotificationUUID == "" {
-		return false, 0, fmt.Errorf("subscription dao: notification uuid required")
+		return false, 0, errors.New("subscription dao: notification uuid required")
 	}
 	if in.RawJWSSHA256 == "" {
-		return false, 0, fmt.Errorf("subscription dao: raw_jws_sha256 required")
+		return false, 0, errors.New("subscription dao: raw_jws_sha256 required")
 	}
 	id, err := s.queries.InsertAppleEventIfNotExists(ctx, db.InsertAppleEventIfNotExistsParams{
 		NotificationUuid:      in.NotificationUUID,
@@ -269,10 +269,10 @@ func (s *subscriptionTxQueries) UpsertSubscriptionWithOwnershipCheck(ctx context
 		return model.Subscription{}, fmt.Errorf("subscription dao: invalid user id %d", in.UserID)
 	}
 	if in.OriginalTransactionID == "" {
-		return model.Subscription{}, fmt.Errorf("subscription dao: original transaction id required")
+		return model.Subscription{}, errors.New("subscription dao: original transaction id required")
 	}
 	if in.Environment == "" {
-		return model.Subscription{}, fmt.Errorf("subscription dao: environment required")
+		return model.Subscription{}, errors.New("subscription dao: environment required")
 	}
 
 	existing, err := s.queries.GetSubscriptionByOriginalTx(ctx, db.GetSubscriptionByOriginalTxParams{
@@ -335,26 +335,26 @@ func (s *subscriptionTxQueries) GetSubscriptionByOriginalTx(ctx context.Context,
 
 func mapSubscriptionRow(row db.AppleSubscription) model.Subscription {
 	out := model.Subscription{
-		ID:                    row.ID,
-		UserID:                row.UserID,
-		AppAccountToken:       pgUUIDToString(row.AppAccountToken),
-		Environment:           model.AppleEnvironment(row.Environment),
-		OriginalTransactionID: row.OriginalTransactionID,
-		LastTransactionID:     row.LastTransactionID,
-		WebOrderLineItemID:    row.WebOrderLineItemID,
-		PlanID:                row.PlanID,
-		ProviderProductID:     row.ProviderProductID,
-		SubscriptionGroupID:   row.SubscriptionGroupID,
-		Level:                 int(row.Level),
-		Status:                row.Status,
-		AutoRenewStatus:       row.AutoRenewStatus,
-		CurrentPeriodStart:    row.CurrentPeriodStart.Time,
-		CurrentPeriodEnd:      row.CurrentPeriodEnd.Time,
-		LastEventAt:           row.LastEventAt.Time,
-		LastPayloadHash:       row.LastPayloadHash,
+		ID:                      row.ID,
+		UserID:                  row.UserID,
+		AppAccountToken:         pgUUIDToString(row.AppAccountToken),
+		Environment:             model.AppleEnvironment(row.Environment),
+		OriginalTransactionID:   row.OriginalTransactionID,
+		LastTransactionID:       row.LastTransactionID,
+		WebOrderLineItemID:      row.WebOrderLineItemID,
+		PlanID:                  row.PlanID,
+		ProviderProductID:       row.ProviderProductID,
+		SubscriptionGroupID:     row.SubscriptionGroupID,
+		Level:                   int(row.Level),
+		Status:                  row.Status,
+		AutoRenewStatus:         row.AutoRenewStatus,
+		CurrentPeriodStart:      row.CurrentPeriodStart.Time,
+		CurrentPeriodEnd:        row.CurrentPeriodEnd.Time,
+		LastEventAt:             row.LastEventAt.Time,
+		LastPayloadHash:         row.LastPayloadHash,
 		LastTransactionSnapshot: row.LastTransactionSnapshot,
-		CreatedAt:             row.CreatedAt.Time,
-		UpdatedAt:             row.UpdatedAt.Time,
+		CreatedAt:               row.CreatedAt.Time,
+		UpdatedAt:               row.UpdatedAt.Time,
 	}
 	if row.GracePeriodExpiresAt.Valid {
 		t := row.GracePeriodExpiresAt.Time
