@@ -233,6 +233,18 @@ func isSensitiveField(field string) bool {
 	switch strings.ToLower(field) {
 	case "token", "access_token", "refresh_token", "id_token", "password", "secret":
 		return true
+	case
+		"signedpayload", "signed_payload",
+		"raw_jws", "rawjws",
+		"raw_payload", "rawpayload",
+		"decoded_payload", "decodedpayload",
+		"appaccounttoken", "app_account_token",
+		"private_key", "privatekey",
+		"apple_iap_private_key",
+		"p8", "p8_path", "p8path",
+		"key_id", "keyid",
+		"issuer_id", "issuerid":
+		return true
 	default:
 		return false
 	}
