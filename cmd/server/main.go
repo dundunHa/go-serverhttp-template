@@ -22,6 +22,7 @@ import (
 	"github.com/dundunHa/go-serverhttp-template/internal/dao"
 	"github.com/dundunHa/go-serverhttp-template/internal/service"
 	"github.com/dundunHa/go-serverhttp-template/internal/service/auth"
+	"github.com/dundunHa/go-serverhttp-template/internal/service/payment"
 	"github.com/dundunHa/go-serverhttp-template/internal/storage"
 	"github.com/dundunHa/go-serverhttp-template/pkg/cache"
 	logpkg "github.com/dundunHa/go-serverhttp-template/pkg/log"
@@ -62,7 +63,10 @@ func main() {
 	}
 	authSvc := auth.NewAuthService(mgr, userSvc, tokenSvc)
 
-	srv := newHTTPServer(conf.Server.Port, userSvc, authSvc)
+	subscriptionDAO := dao.NewSubscriptionDAO(db)
+	paymentTokens := payment.NewTokenService(subscriptionDAO)
+
+	srv := newHTTPServer(conf.Server.Port, userSvc, authSvc, paymentTokens)
 	startServer(srv)
 
 	waitForShutdown(srv, 10*time.Second)
@@ -92,7 +96,7 @@ func initUserService(db *pgxpool.Pool) service.UserService {
 }
 
 // 构建一个带中间件和路由的 HTTP Server
-func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service) *http.Server {
+func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service, paymentTokens *payment.TokenService) *http.Server {
 	r := chi.NewRouter()
 	r.Use(
 		chiMw.RequestID,
@@ -127,6 +131,10 @@ func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service) 
 	api.RegisterUserRoutes(humaAPI, api.UserDeps{
 		Users: userSvc,
 		Auth:  authSvc,
+	})
+	api.RegisterPaymentRoutes(humaAPI, api.PaymentDeps{
+		Auth:   authSvc,
+		Tokens: paymentTokens,
 	})
 
 	addr := fmt.Sprintf(":%d", port)
