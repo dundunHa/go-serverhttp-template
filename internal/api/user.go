@@ -15,15 +15,24 @@ import (
 )
 
 type UserDeps struct {
-	Users service.UserService
-	Auth  auth.Service
+	Users         service.UserService
+	Auth          auth.Service
+	Subscriptions SubscriptionReader
+}
+
+// SubscriptionReader 是 /users/me 用来获取 provider-neutral 订阅状态的依赖。
+//
+// 生产实现由 internal/service/payment.SubscriptionReader 提供；测试可以注入空实现，
+// 此时 loadCurrentUser 返回 SubscriptionInfo{Status: "NONE"}。
+type SubscriptionReader interface {
+	LoadSubscriptionInfo(ctx context.Context, userID int64) (model.SubscriptionInfo, error)
 }
 
 func RegisterUserRoutes(api huma.API, deps UserDeps) {
 	registerUserBearerAuth(api)
 	registerAPIDocMetadata(api)
 	registerUserHelloRoute(api)
-	registerUserRoutes(api, deps.Users, deps.Auth)
+	registerUserRoutes(api, deps.Users, deps.Auth, deps.Subscriptions)
 	registerUserAuthRoutes(api, deps.Auth)
 }
 
@@ -91,7 +100,7 @@ func registerUserHelloRoute(api huma.API) {
 	})
 }
 
-func registerUserRoutes(api huma.API, userSvc service.UserService, authSvc auth.Service) {
+func registerUserRoutes(api huma.API, userSvc service.UserService, authSvc auth.Service, subscriptions SubscriptionReader) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-current-user",
 		Method:      http.MethodGet,
@@ -111,7 +120,7 @@ func registerUserRoutes(api huma.API, userSvc service.UserService, authSvc auth.
 			return nil, err
 		}
 
-		me, err := loadCurrentUser(ctx, userSvc, authedUser)
+		me, err := loadCurrentUser(ctx, userSvc, subscriptions, authedUser)
 		if err != nil {
 			return nil, err
 		}
@@ -126,9 +135,9 @@ func registerUserRoutes(api huma.API, userSvc service.UserService, authSvc auth.
 
 // loadCurrentUser 根据 JWT 中的用户标识，组装 /users/me 的返回数据。
 //
-// 现阶段积分与订阅模块尚未接入领域服务，先返回零值占位，
-// 让上层接口契约保持稳定，后续接入对应 service 后只需替换此处实现。
-func loadCurrentUser(ctx context.Context, userSvc service.UserService, authedUser *model.UserInfo) (*model.MeData, error) {
+// Credits.Balance 仍然保持 0：plan U7 明确不引入 credits/wallet。
+// SubscriptionInfo 由注入的 SubscriptionReader 给出；reader 为 nil 时退化为 Status="NONE"。
+func loadCurrentUser(ctx context.Context, userSvc service.UserService, subscriptions SubscriptionReader, authedUser *model.UserInfo) (*model.MeData, error) {
 	id, err := strconv.Atoi(authedUser.ID)
 	if err != nil || id <= 0 {
 		return nil, huma.Error401Unauthorized("access token 无效")
@@ -142,9 +151,21 @@ func loadCurrentUser(ctx context.Context, userSvc service.UserService, authedUse
 		return nil, huma.Error500InternalServerError("获取用户失败")
 	}
 
+	subInfo := model.SubscriptionInfo{Status: "NONE"}
+	if subscriptions != nil {
+		info, err := subscriptions.LoadSubscriptionInfo(ctx, int64(user.ID))
+		if err != nil {
+			return nil, huma.Error500InternalServerError("获取订阅状态失败")
+		}
+		subInfo = info
+		if subInfo.Status == "" {
+			subInfo.Status = "NONE"
+		}
+	}
+
 	return &model.MeData{
 		Credits:          model.Credits{},
-		SubscriptionInfo: model.SubscriptionInfo{},
+		SubscriptionInfo: subInfo,
 		User: model.UserSummary{
 			ID:   strconv.Itoa(user.ID),
 			Name: user.Name,
