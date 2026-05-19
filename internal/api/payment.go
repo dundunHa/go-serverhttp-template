@@ -23,18 +23,26 @@ type PaymentIAPService interface {
 	VerifyTransaction(ctx context.Context, userID int64, transactionID string) (*model.SubscriptionInfo, error)
 }
 
-// PaymentDeps 聚合 payment 路由的所有依赖。后续 U8 / U9 会扩展该结构。
-type PaymentDeps struct {
-	Auth   auth.Service
-	Tokens PaymentTokenService
-	IAP    PaymentIAPService
+// PaymentWebhookService 是 webhook 路由所需的最小服务接口。
+type PaymentWebhookService interface {
+	HandleSignedPayload(ctx context.Context, signedPayload string) error
+	WebhookMaxBodyBytes() int
 }
 
-// RegisterPaymentRoutes 注册 /payment/* 与（后续）/webhooks/apple 路由。
+// PaymentDeps 聚合 payment 路由的所有依赖。后续 U9 会扩展该结构。
+type PaymentDeps struct {
+	Auth    auth.Service
+	Tokens  PaymentTokenService
+	IAP     PaymentIAPService
+	Webhook PaymentWebhookService
+}
+
+// RegisterPaymentRoutes 注册 /payment/* 与 /webhooks/apple 路由。
 func RegisterPaymentRoutes(api huma.API, deps PaymentDeps) {
 	registerPaymentDocMetadata(api)
 	registerAccountTokenRoute(api, deps)
 	registerVerifyRoute(api, deps)
+	registerWebhookRoute(api, deps)
 }
 
 func registerPaymentDocMetadata(api huma.API) {
@@ -169,4 +177,89 @@ func mapVerifyError(err error) error {
 	default:
 		return huma.Error500InternalServerError("verify 失败")
 	}
+}
+
+const fallbackWebhookMaxBodyBytes = 65536
+
+// AppleWebhookRequest 是 POST /webhooks/apple 的请求体（per Apple ASSN V2 spec）。
+type AppleWebhookRequest struct {
+	SignedPayload string `json:"signedPayload" doc:"Apple App Store Server Notification V2 的 signed payload" required:"true"`
+}
+
+// AppleWebhookAck 是 webhook 成功路径的响应体；与公共 API envelope 一致。
+type AppleWebhookAck struct {
+	Success bool   `json:"success" doc:"Apple 期望的 200 ack" example:"true"`
+	Message string `json:"message" doc:"附加状态信息（可空）"`
+}
+
+func registerWebhookRoute(api huma.API, deps PaymentDeps) {
+	huma.Register(api, huma.Operation{
+		OperationID: "apple-iap-webhook",
+		Method:      http.MethodPost,
+		Path:        "/webhooks/apple",
+		Summary:     "Apple App Store Server Notifications V2 入口",
+		Description: "公共 endpoint：接收 Apple 推送的 signed JWS payload。本服务做 body size、JWS shape、x5c + 签名 + bundle id 校验，然后幂等写入 apple_events，按通知类型 reduce apple_subscriptions。Apple 的重试机制要求 200 ack 才停止；任何下游瞬态错误（DB / Apple API）返回 500 让 Apple 重试。\n\n安全边界：请求体上限 ~64KB（可通过 APPLE_IAP_WEBHOOK_MAX_BODY_BYTES 配置），signedPayload 必须是合法的 compact JWS（三段式），日志中所有敏感字段都会被脱敏。",
+		Tags:        []string{"payment"},
+		Errors: []int{
+			http.StatusBadRequest,
+			http.StatusUnauthorized,
+			http.StatusInternalServerError,
+		},
+	}, func(ctx context.Context, input *struct {
+		Body AppleWebhookRequest
+		// 显式告知 huma 启用 maxBytes 参考 huma docs 中的 body limit；
+		// 实际 limit 在 chi 中间件层执行（见 main.go）。
+	}) (*struct {
+		Body model.Response[AppleWebhookAck]
+	}, error) {
+		if deps.Webhook == nil {
+			return nil, huma.Error500InternalServerError("webhook 未配置")
+		}
+		max := deps.Webhook.WebhookMaxBodyBytes()
+		if max <= 0 {
+			max = fallbackWebhookMaxBodyBytes
+		}
+		if len(input.Body.SignedPayload) == 0 {
+			return nil, huma.Error400BadRequest("signedPayload 不能为空")
+		}
+		if len(input.Body.SignedPayload) > max {
+			return nil, huma.Error400BadRequest("signedPayload 超出长度限制")
+		}
+		if !looksLikeCompactJWS(input.Body.SignedPayload) {
+			return nil, huma.Error400BadRequest("signedPayload 不是合法的 compact JWS")
+		}
+		if err := deps.Webhook.HandleSignedPayload(ctx, input.Body.SignedPayload); err != nil {
+			return nil, mapWebhookError(err)
+		}
+		return &struct {
+			Body model.Response[AppleWebhookAck]
+		}{
+			Body: model.Success(AppleWebhookAck{Success: true, Message: "ok"}),
+		}, nil
+	})
+}
+
+func mapWebhookError(err error) error {
+	switch {
+	case errors.Is(err, payment.ErrNotConfigured),
+		errors.Is(err, payment.ErrInvalidConfig):
+		return huma.Error500InternalServerError("apple iap not configured")
+	case errors.Is(err, payment.ErrAppleAuthRejected):
+		return huma.Error401Unauthorized("invalid signed payload")
+	default:
+		return huma.Error500InternalServerError("apple webhook processing failed")
+	}
+}
+
+func looksLikeCompactJWS(s string) bool {
+	if s == "" {
+		return false
+	}
+	parts := 0
+	for _, c := range s {
+		if c == '.' {
+			parts++
+		}
+	}
+	return parts == 2
 }
