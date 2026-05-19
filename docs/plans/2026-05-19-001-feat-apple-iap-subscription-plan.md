@@ -1,7 +1,7 @@
 ---
 title: "feat: Apple IAP subscription marker"
 type: feat
-status: ready_for_implementation
+status: completed
 date: 2026-05-19
 origin:
   - ~/.gstack/projects/go-serverhttp-template/lxp-main-design-20260518-203148-apple-iap.md
