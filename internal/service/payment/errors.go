@@ -1,6 +1,10 @@
 package payment
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/dundunHa/go-serverhttp-template/internal/dao"
+)
 
 var (
 	ErrNotConfigured                 = errors.New("apple iap: not configured")
@@ -11,7 +15,10 @@ var (
 	ErrSandboxFallbackDisabled       = errors.New("apple iap: sandbox fallback disabled")
 	ErrEmptyAppAccountToken          = errors.New("apple iap: appAccountToken missing")
 	ErrAppAccountTokenMismatch       = errors.New("apple iap: appAccountToken does not match authenticated user")
-	ErrSubscriptionOwnershipConflict = errors.New("apple iap: original_transaction_id belongs to another user")
 	ErrTransactionRevoked            = errors.New("apple iap: transaction revoked")
 	ErrUnsupportedProductType        = errors.New("apple iap: only auto-renewable subscriptions supported")
+
+	ErrSubscriptionOwnershipConflict = dao.ErrSubscriptionOwnershipConflict
+	ErrSubscriptionNotFound          = dao.ErrSubscriptionNotFound
 )
+
