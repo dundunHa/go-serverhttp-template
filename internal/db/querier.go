@@ -6,13 +6,24 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	CreateAuthIdentity(ctx context.Context, arg CreateAuthIdentityParams) (CreateAuthIdentityRow, error)
 	CreateUser(ctx context.Context, name string) (CreateUserRow, error)
+	GetAppleAccountTokenByToken(ctx context.Context, token pgtype.UUID) (AppleAccountToken, error)
+	GetAppleAccountTokenByUser(ctx context.Context, userID int64) (AppleAccountToken, error)
+	GetAppleEventByUUID(ctx context.Context, notificationUuid string) (AppleEvent, error)
+	GetSubscriptionByOriginalTx(ctx context.Context, arg GetSubscriptionByOriginalTxParams) (AppleSubscription, error)
 	GetUser(ctx context.Context, id int64) (GetUserRow, error)
 	GetUserInfoByAuthIdentity(ctx context.Context, arg GetUserInfoByAuthIdentityParams) (GetUserInfoByAuthIdentityRow, error)
+	InsertAppleAccountToken(ctx context.Context, arg InsertAppleAccountTokenParams) (AppleAccountToken, error)
+	InsertAppleEventIfNotExists(ctx context.Context, arg InsertAppleEventIfNotExistsParams) (int64, error)
+	ListPendingAppleEvents(ctx context.Context, arg ListPendingAppleEventsParams) ([]AppleEvent, error)
+	ListSubscriptionsForUserEntitlement(ctx context.Context, arg ListSubscriptionsForUserEntitlementParams) ([]AppleSubscription, error)
+	UpsertSubscription(ctx context.Context, arg UpsertSubscriptionParams) (AppleSubscription, error)
 }
 
 var _ Querier = (*Queries)(nil)
