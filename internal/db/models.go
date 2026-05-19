@@ -8,6 +8,58 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AppleAccountToken struct {
+	ID        int64
+	UserID    int64
+	Token     pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type AppleEvent struct {
+	ID                    int64
+	NotificationUuid      string
+	NotificationType      string
+	Subtype               string
+	Environment           string
+	UserID                pgtype.Int8
+	AppAccountToken       pgtype.UUID
+	OriginalTransactionID string
+	TransactionID         string
+	WebOrderLineItemID    string
+	ProcessingStatus      string
+	ProcessingError       string
+	RawJwsSha256          string
+	DecodedPayload        []byte
+	NotificationCreatedAt pgtype.Timestamptz
+	CreatedAt             pgtype.Timestamptz
+}
+
+type AppleSubscription struct {
+	ID                        int64
+	UserID                    int64
+	AppAccountToken           pgtype.UUID
+	Environment               string
+	OriginalTransactionID     string
+	LastTransactionID         string
+	WebOrderLineItemID        string
+	PlanID                    string
+	ProviderProductID         string
+	SubscriptionGroupID       string
+	Level                     int32
+	Status                    string
+	AutoRenewStatus           string
+	CurrentPeriodStart        pgtype.Timestamptz
+	CurrentPeriodEnd          pgtype.Timestamptz
+	GracePeriodExpiresAt      pgtype.Timestamptz
+	LastEventAt               pgtype.Timestamptz
+	LastNotificationCreatedAt pgtype.Timestamptz
+	LastPayloadHash           string
+	LastTransactionSnapshot   []byte
+	CreatedAt                 pgtype.Timestamptz
+	UpdatedAt                 pgtype.Timestamptz
+}
+
 type AuthIdentity struct {
 	Provider        string
 	ProviderSubject string

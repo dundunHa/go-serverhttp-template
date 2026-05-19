@@ -147,6 +147,9 @@ func TestUserRoutesGetCurrentUser(t *testing.T) {
 	if got.Data.Credits.Balance != 0 {
 		t.Fatalf("unexpected credits: %+v", got.Data.Credits)
 	}
+	if got.Data.SubscriptionInfo.Status != "NONE" {
+		t.Fatalf("expected subscription status NONE for user without iap rows, got %q", got.Data.SubscriptionInfo.Status)
+	}
 }
 
 func TestUserRoutesGetCurrentUserReturnNotFound(t *testing.T) {

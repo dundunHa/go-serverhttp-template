@@ -66,14 +66,16 @@ Huma 自动生成 OpenAPI 和交互文档：
 postgres://postgres:postgres@localhost:5432/app?sslmode=disable
 ```
 
-首次本地运行前需要先创建数据库并应用 schema：
+首次本地运行前需要先创建数据库并应用所有迁移：
 
 ```bash
 createdb app
-psql "postgres://postgres:postgres@localhost:5432/app?sslmode=disable" -f db/migrations/001_init.sql
+make migrate DB_DSN="postgres://postgres:postgres@localhost:5432/app?sslmode=disable"
 go test ./...
 go run ./cmd/server
 ```
+
+`make migrate` 会按字典序顺序应用 `db/migrations/*.sql` 里的所有迁移，且因每个迁移都使用 `IF NOT EXISTS`，重复执行幂等。`DB_DSN` 必填，否则 target 会立即报错退出。
 
 修改 `db/queries` 或 `db/migrations` 后重新生成查询代码：
 

@@ -22,6 +22,7 @@ import (
 	"github.com/dundunHa/go-serverhttp-template/internal/dao"
 	"github.com/dundunHa/go-serverhttp-template/internal/service"
 	"github.com/dundunHa/go-serverhttp-template/internal/service/auth"
+	"github.com/dundunHa/go-serverhttp-template/internal/service/payment"
 	"github.com/dundunHa/go-serverhttp-template/internal/storage"
 	"github.com/dundunHa/go-serverhttp-template/pkg/cache"
 	logpkg "github.com/dundunHa/go-serverhttp-template/pkg/log"
@@ -62,7 +63,17 @@ func main() {
 	}
 	authSvc := auth.NewAuthService(mgr, userSvc, tokenSvc)
 
-	srv := newHTTPServer(conf.Server.Port, userSvc, authSvc)
+	subscriptionDAO := dao.NewSubscriptionDAO(db)
+	paymentTokens := payment.NewTokenService(subscriptionDAO)
+	iapCatalog, catalogErr := payment.NewCatalog(conf.AppleIAP, conf.AppEnv)
+	if catalogErr != nil {
+		slog.Warn("apple iap catalog unavailable; verify endpoint and /users/me subscription will return NONE", "err", catalogErr)
+	}
+	paymentIAP := buildPaymentIAPService(iapCatalog, subscriptionDAO, paymentTokens)
+	subscriptionReader := buildSubscriptionReader(iapCatalog, subscriptionDAO)
+	paymentWebhook := buildPaymentWebhookService(iapCatalog, subscriptionDAO, paymentTokens)
+
+	srv := newHTTPServer(conf.Server.Port, userSvc, authSvc, paymentTokens, paymentIAP, subscriptionReader, paymentWebhook)
 	startServer(srv)
 
 	waitForShutdown(srv, 10*time.Second)
@@ -91,8 +102,47 @@ func initUserService(db *pgxpool.Pool) service.UserService {
 	return service.NewUserService(dao.NewUserDAO(db))
 }
 
+// buildPaymentIAPService 在 catalog 配置齐全时构造 verify 路径所需的 service；
+// 配置缺失时返回 nil，路由层会把 nil 映射为 503 让客户端提示“尚未开放”。
+func buildPaymentIAPService(catalog *payment.Catalog, subscriptionDAO dao.SubscriptionDAO, tokens *payment.TokenService) api.PaymentIAPService {
+	if catalog == nil {
+		return nil
+	}
+	verifier, err := payment.NewAppleTransactionVerifier(catalog)
+	if err != nil {
+		slog.Warn("apple iap verifier unavailable; verify endpoint will return 503", "err", err)
+		return nil
+	}
+	return payment.NewAppleIAPService(catalog, verifier, tokens, subscriptionDAO)
+}
+
+// buildSubscriptionReader 把 catalog + DAO 包装成 /users/me 用的 reader。
+//
+// catalog 缺失时返回 nil，user.go 退化为 SubscriptionInfo{Status:"NONE"}。
+func buildSubscriptionReader(catalog *payment.Catalog, subscriptionDAO dao.SubscriptionDAO) api.SubscriptionReader {
+	if catalog == nil {
+		return nil
+	}
+	return payment.NewSubscriptionReader(subscriptionDAO, catalog)
+}
+
+// buildPaymentWebhookService 在 catalog 配置齐全时构造 webhook service。
+//
+// catalog 缺失时返回 nil，路由层会把 nil 映射为 500（让 Apple 在配置恢复后自动重试）。
+func buildPaymentWebhookService(catalog *payment.Catalog, subscriptionDAO dao.SubscriptionDAO, tokens *payment.TokenService) api.PaymentWebhookService {
+	if catalog == nil {
+		return nil
+	}
+	verifier, err := payment.NewAppleWebhookVerifier(catalog)
+	if err != nil {
+		slog.Warn("apple iap webhook verifier unavailable; webhook endpoint will return 500", "err", err)
+		return nil
+	}
+	return payment.NewAppleWebhookService(catalog, verifier, tokens, subscriptionDAO)
+}
+
 // 构建一个带中间件和路由的 HTTP Server
-func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service) *http.Server {
+func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service, paymentTokens *payment.TokenService, paymentIAP api.PaymentIAPService, subscriptions api.SubscriptionReader, paymentWebhook api.PaymentWebhookService) *http.Server {
 	r := chi.NewRouter()
 	r.Use(
 		chiMw.RequestID,
@@ -125,8 +175,15 @@ func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service) 
 	}
 	humaAPI := humachi.New(r, humaConfig)
 	api.RegisterUserRoutes(humaAPI, api.UserDeps{
-		Users: userSvc,
-		Auth:  authSvc,
+		Users:         userSvc,
+		Auth:          authSvc,
+		Subscriptions: subscriptions,
+	})
+	api.RegisterPaymentRoutes(humaAPI, api.PaymentDeps{
+		Auth:    authSvc,
+		Tokens:  paymentTokens,
+		IAP:     paymentIAP,
+		Webhook: paymentWebhook,
 	})
 
 	addr := fmt.Sprintf(":%d", port)

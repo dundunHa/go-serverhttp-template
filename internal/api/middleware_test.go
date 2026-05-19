@@ -26,6 +26,86 @@ func TestRedactSensitiveJSON(t *testing.T) {
 	}
 }
 
+func TestRedactSensitiveJSON_AppleIAPFields(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		hide []string
+		keep []string
+	}{
+		{
+			name: "webhook_signed_payload",
+			in:   `{"signedPayload":"eyJhbGciOiJF.aaa.bbb","other":"keep"}`,
+			hide: []string{"eyJhbGciOiJF.aaa.bbb"},
+			keep: []string{"keep"},
+		},
+		{
+			name: "snake_case_signed_payload",
+			in:   `{"signed_payload":"eyJaaa","unrelated":"value"}`,
+			hide: []string{"eyJaaa"},
+			keep: []string{"value"},
+		},
+		{
+			name: "app_account_token_both_cases",
+			in:   `{"appAccountToken":"uuid-abc","data":{"app_account_token":"uuid-xyz"}}`,
+			hide: []string{"uuid-abc", "uuid-xyz"},
+		},
+		{
+			name: "private_key_and_p8",
+			in:   `{"private_key":"-----BEGIN PRIVATE KEY-----","p8":"file-contents","p8_path":"/path"}`,
+			hide: []string{"BEGIN PRIVATE KEY", "file-contents", "/path"},
+		},
+		{
+			name: "apple_iap_private_key_alias",
+			in:   `{"apple_iap_private_key":"pem-blob"}`,
+			hide: []string{"pem-blob"},
+		},
+		{
+			name: "raw_jws_and_decoded_payload",
+			in:   `{"raw_jws":"abc.def.ghi","decoded_payload":{"transactionId":"200000123"}}`,
+			hide: []string{"abc.def.ghi", "200000123"},
+		},
+		{
+			name: "key_id_and_issuer_id",
+			in:   `{"key_id":"ABC123","issuer_id":"57246542"}`,
+			hide: []string{"ABC123", "57246542"},
+		},
+		{
+			name: "nested_in_arrays",
+			in:   `{"events":[{"signedPayload":"abc"},{"signedPayload":"def"}]}`,
+			hide: []string{"abc", "def"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := redactSensitiveJSON(tc.in)
+			for _, secret := range tc.hide {
+				if strings.Contains(got, secret) {
+					t.Fatalf("expected %q redacted, got %s", secret, got)
+				}
+			}
+			if !strings.Contains(got, "[REDACTED]") {
+				t.Fatalf("expected [REDACTED] marker in %s", got)
+			}
+			for _, plain := range tc.keep {
+				if !strings.Contains(got, plain) {
+					t.Fatalf("expected %q preserved, got %s", plain, got)
+				}
+			}
+		})
+	}
+}
+
+func TestRedactSensitiveJSON_NonJSONUnchanged(t *testing.T) {
+	in := "not-json"
+	if got := redactSensitiveJSON(in); got != in {
+		t.Fatalf("non-json should pass through unchanged, got %q", got)
+	}
+	if got := redactSensitiveJSON(""); got != "" {
+		t.Fatalf("empty input should pass through, got %q", got)
+	}
+}
+
 func TestLoggingInjectsModuleIntoHandlerContext(t *testing.T) {
 	var logs bytes.Buffer
 	root := slog.New(slog.NewJSONHandler(&logs, nil))
