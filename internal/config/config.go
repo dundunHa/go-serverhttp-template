@@ -26,6 +26,34 @@ type Config struct {
 	Cache CacheConfig `envconfig:"CACHE"`
 
 	Auth AuthConfig `envconfig:"AUTH"`
+
+	AppleIAP AppleIAPConfig `envconfig:"APPLE_IAP"`
+}
+
+// AppleIAPConfig 描述 Apple In-App Purchase 订阅相关配置。
+//
+// 解析后的环境变量统一以 APPLE_IAP_ 为前缀（由外层 `envconfig:"APPLE_IAP"`
+// 与字段标签拼接得到），例如 APPLE_IAP_BUNDLE_ID、APPLE_IAP_PRIVATE_KEY。
+//
+// 安全契约（务必保持）：
+//   - 携带凭证的字段（PrivateKey / P8Path / IssuerID / KeyID / BundleID / Products）
+//     不得设置 envconfig default；缺失即视为未配置，由 payment 包判定 ErrNotConfigured。
+//   - LoadConfig 仅做反序列化，不做业务校验；校验位置在
+//     internal/service/payment/catalog.go，便于 HTTP 层干净地返回 503。
+//   - 调用方不得日志输出 PrivateKey / P8Path 内容、Products JSON。
+type AppleIAPConfig struct {
+	BundleID   string `envconfig:"BUNDLE_ID"`
+	IssuerID   string `envconfig:"ISSUER_ID"`
+	KeyID      string `envconfig:"KEY_ID"`
+	PrivateKey string `envconfig:"PRIVATE_KEY"`
+	P8Path     string `envconfig:"P8_PATH"`
+	Products   string `envconfig:"PRODUCTS"`
+
+	EntitlementEnvironments string        `envconfig:"ENTITLEMENT_ENVIRONMENTS" default:"Production"`
+	EnableSandboxFallback   bool          `envconfig:"ENABLE_SANDBOX_FALLBACK" default:"false"`
+	WebhookMaxBodyBytes     int           `envconfig:"WEBHOOK_MAX_BODY_BYTES" default:"65536"`
+	StoreRawPayloads        bool          `envconfig:"STORE_RAW_PAYLOADS" default:"false"`
+	AppleAPITimeout         time.Duration `envconfig:"APPLE_API_TIMEOUT" default:"10s"`
 }
 
 // CacheConfig 定义 Redis 缓存相关配置
