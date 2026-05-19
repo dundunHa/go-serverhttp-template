@@ -9,17 +9,20 @@ import (
 	"time"
 
 	"github.com/dundunHa/go-serverhttp-template/internal/config"
+	"github.com/dundunHa/go-serverhttp-template/internal/model"
 )
 
 // AppEnvProd 与 config.AppEnv 中表示生产部署的字面值保持一致；
 // 生产环境会触发额外的安全校验（禁用 P8Path、禁用 raw payload 落库等）。
 const AppEnvProd = "prod"
 
-type Environment string
+// Environment 是 model.AppleEnvironment 的 payment 包内别名。两个名字指向同一类型，
+// 跨 dao / payment / model 包传递时无需显式转换。
+type Environment = model.AppleEnvironment
 
 const (
-	EnvProduction Environment = "Production"
-	EnvSandbox    Environment = "Sandbox"
+	EnvProduction = model.AppleEnvProduction
+	EnvSandbox    = model.AppleEnvSandbox
 )
 
 type Product struct {

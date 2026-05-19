@@ -65,8 +65,9 @@ func main() {
 
 	subscriptionDAO := dao.NewSubscriptionDAO(db)
 	paymentTokens := payment.NewTokenService(subscriptionDAO)
+	paymentIAP := buildPaymentIAPService(conf, subscriptionDAO, paymentTokens)
 
-	srv := newHTTPServer(conf.Server.Port, userSvc, authSvc, paymentTokens)
+	srv := newHTTPServer(conf.Server.Port, userSvc, authSvc, paymentTokens, paymentIAP)
 	startServer(srv)
 
 	waitForShutdown(srv, 10*time.Second)
@@ -95,8 +96,24 @@ func initUserService(db *pgxpool.Pool) service.UserService {
 	return service.NewUserService(dao.NewUserDAO(db))
 }
 
+// buildPaymentIAPService 在 catalog 配置齐全时构造 verify 路径所需的 service；
+// 配置缺失时返回 nil，路由层会把 nil 映射为 503 让客户端提示“尚未开放”。
+func buildPaymentIAPService(conf *config.Config, subscriptionDAO dao.SubscriptionDAO, tokens *payment.TokenService) api.PaymentIAPService {
+	catalog, err := payment.NewCatalog(conf.AppleIAP, conf.AppEnv)
+	if err != nil {
+		slog.Warn("apple iap not configured; verify endpoint will return 503", "err", err)
+		return nil
+	}
+	verifier, err := payment.NewAppleTransactionVerifier(catalog)
+	if err != nil {
+		slog.Warn("apple iap verifier unavailable; verify endpoint will return 503", "err", err)
+		return nil
+	}
+	return payment.NewAppleIAPService(catalog, verifier, tokens, subscriptionDAO)
+}
+
 // 构建一个带中间件和路由的 HTTP Server
-func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service, paymentTokens *payment.TokenService) *http.Server {
+func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service, paymentTokens *payment.TokenService, paymentIAP api.PaymentIAPService) *http.Server {
 	r := chi.NewRouter()
 	r.Use(
 		chiMw.RequestID,
@@ -135,6 +152,7 @@ func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service, 
 	api.RegisterPaymentRoutes(humaAPI, api.PaymentDeps{
 		Auth:   authSvc,
 		Tokens: paymentTokens,
+		IAP:    paymentIAP,
 	})
 
 	addr := fmt.Sprintf(":%d", port)
