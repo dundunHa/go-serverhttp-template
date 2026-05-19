@@ -106,8 +106,8 @@ func TestUserRoutesHello(t *testing.T) {
 	}
 }
 
-func TestUserRoutesGetUser(t *testing.T) {
-	req := newAuthorizedUserRequest(t, http.MethodGet, "/users/1", nil)
+func TestUserRoutesGetCurrentUser(t *testing.T) {
+	req := newAuthorizedUserRequest(t, http.MethodGet, "/users/me", nil)
 	rec := httptest.NewRecorder()
 
 	newUserTestRouter(t).ServeHTTP(rec, req)
@@ -117,36 +117,44 @@ func TestUserRoutesGetUser(t *testing.T) {
 	}
 
 	var got struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
 		Data struct {
-			ID   int    `json:"id"`
-			Name string `json:"name"`
+			Credits struct {
+				Balance int64 `json:"balance"`
+			} `json:"credits"`
+			SubscriptionInfo struct {
+				ProductID            string `json:"product_id"`
+				Status               string `json:"status"`
+				SubscribeExpiredTime string `json:"subscribe_expired_time"`
+				SubscribeLevel       int    `json:"subscribe_level"`
+			} `json:"subscription_info"`
+			User struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"user"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if got.Data.ID != 1 || got.Data.Name == "" {
-		t.Fatalf("unexpected user: %+v", got.Data)
+	if got.Code != model.CodeSuccess || got.Msg != model.MsgSuccess {
+		t.Fatalf("unexpected envelope: code=%d msg=%q", got.Code, got.Msg)
+	}
+	if got.Data.User.ID != "1" || got.Data.User.Name == "" {
+		t.Fatalf("unexpected user: %+v", got.Data.User)
+	}
+	if got.Data.Credits.Balance != 0 {
+		t.Fatalf("unexpected credits: %+v", got.Data.Credits)
 	}
 }
 
-func TestUserRoutesRejectInvalidUserID(t *testing.T) {
-	req := newAuthorizedUserRequest(t, http.MethodGet, "/users/nope", nil)
-	rec := httptest.NewRecorder()
-
-	newUserTestRouter(t).ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
-	}
-}
-
-func TestUserRoutesReturnNotFound(t *testing.T) {
+func TestUserRoutesGetCurrentUserReturnNotFound(t *testing.T) {
 	req := newAuthorizedUserRequestForUser(t, model.UserInfo{
 		ID:              "404",
 		Provider:        "guest",
 		ProviderSubject: "missing-user",
-	}, http.MethodGet, "/users/404", nil)
+	}, http.MethodGet, "/users/me", nil)
 	rec := httptest.NewRecorder()
 
 	newUserTestRouter(t).ServeHTTP(rec, req)
@@ -156,8 +164,12 @@ func TestUserRoutesReturnNotFound(t *testing.T) {
 	}
 }
 
-func TestUserRoutesRequireJWT(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/users/1", nil)
+func TestUserRoutesGetCurrentUserRejectsNonNumericSubject(t *testing.T) {
+	req := newAuthorizedUserRequestForUser(t, model.UserInfo{
+		ID:              "not-a-number",
+		Provider:        "guest",
+		ProviderSubject: "weird-id",
+	}, http.MethodGet, "/users/me", nil)
 	rec := httptest.NewRecorder()
 
 	newUserTestRouter(t).ServeHTTP(rec, req)
@@ -167,24 +179,14 @@ func TestUserRoutesRequireJWT(t *testing.T) {
 	}
 }
 
-func TestUserRoutesRejectMismatchedTokenSubject(t *testing.T) {
-	authSvc := newTestAuthService(t, service.NewMemoryUserService())
-	token, _, err := authSvc.IssueAccessToken(context.Background(), model.UserInfo{
-		ID:              "2",
-		Provider:        "guest",
-		ProviderSubject: "other-device",
-	})
-	if err != nil {
-		t.Fatalf("issue test token: %v", err)
-	}
-	req := httptest.NewRequest(http.MethodGet, "/users/1", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+func TestUserRoutesRequireJWT(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/users/me", nil)
 	rec := httptest.NewRecorder()
 
 	newUserTestRouter(t).ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusUnauthorized, rec.Body.String())
 	}
 }
 
@@ -299,7 +301,7 @@ func TestUserRoutesOpenAPI(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"openapi"`) {
 		t.Fatalf("openapi response missing openapi field: %s", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"/users/{id}"`) {
+	if !strings.Contains(rec.Body.String(), `"/users/me"`) {
 		t.Fatalf("openapi response missing users route: %s", rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), `"bearerAuth"`) {

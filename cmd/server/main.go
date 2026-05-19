@@ -106,6 +106,23 @@ func newHTTPServer(port int, userSvc service.UserService, authSvc auth.Service) 
 	humaConfig := huma.DefaultConfig("Go Server HTTP Template API", "0.1.0")
 	humaConfig.OpenAPIPath = "/openapi"
 	humaConfig.DocsPath = "/docs"
+	if humaConfig.Info != nil {
+		humaConfig.Info.Description = "Go Server HTTP Template 的公开 HTTP API。所有业务接口采用统一响应体 `{code, data, msg}`，需身份认证的接口请在 `Authorization` 中携带 `Bearer <access_token>`。"
+		humaConfig.Info.Contact = &huma.Contact{
+			Name: "Go Server HTTP Template Maintainers",
+			URL:  "https://github.com/dundunHa/go-serverhttp-template",
+		}
+		humaConfig.Info.License = &huma.License{
+			Name:       "MIT",
+			Identifier: "MIT",
+		}
+	}
+	humaConfig.OpenAPI.Servers = []*huma.Server{
+		{
+			URL:         fmt.Sprintf("http://localhost:%d", port),
+			Description: "本地开发环境",
+		},
+	}
 	humaAPI := humachi.New(r, humaConfig)
 	api.RegisterUserRoutes(humaAPI, api.UserDeps{
 		Users: userSvc,
